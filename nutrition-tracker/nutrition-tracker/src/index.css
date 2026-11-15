@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/* מצב כהה נקבע ע״י המחלקה dark על אלמנט html. ‏dark:bg-... ב-Tailwind עובד איתה */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ערכת הצבעים: ערכים בהירים כברירת מחדל, וכהים תחת .dark */
+:root {
+  --t-bg: #f4f5f7;
+  --t-surf: #ffffff;
+  --t-surf2: #eceff3;
+  --t-ink: #14181d;
+  --t-mute: #5b6572;
+  --t-line: #d6dbe2;
+  --t-brand: #0f766e;
+  --t-onbrand: #ffffff;
+  --t-over: #dc2626;
+  --t-good: #15803d;
+  --t-gold: #a16207;
+  --t-warn: #b45309;
+  --t-shadow: rgba(20, 24, 29, 0.14);
+  /* מרחק הניווט התחתון מקצה המסך */
+  --nav-bottom: 80px;
+  color-scheme: light;
+}
+.dark {
+  --t-bg: #0a0c0f;
+  --t-surf: #10141a;
+  --t-surf2: #161b22;
+  --t-ink: #e6eaf0;
+  --t-mute: #8a94a3;
+  --t-line: #232a33;
+  --t-brand: #5eead4;
+  --t-onbrand: #04110e;
+  --t-over: #f87171;
+  --t-good: #4ade80;
+  --t-gold: #facc15;
+  --t-warn: #fbbf24;
+  --t-shadow: rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+/* static: המשתנים נוצרים תמיד, גם כשמשתמשים בהם רק דרך style */
+@theme static {
+  --font-sans: "Heebo", Arial, sans-serif;
+  --color-bg: var(--t-bg);
+  --color-surf: var(--t-surf);
+  --color-surf2: var(--t-surf2);
+  --color-ink: var(--t-ink);
+  --color-mute: var(--t-mute);
+  --color-line: var(--t-line);
+  --color-brand: var(--t-brand);
+  --color-onbrand: var(--t-onbrand);
+  --color-over: var(--t-over);
+  --color-good: var(--t-good);
+  --color-gold: var(--t-gold);
+  --color-warn: var(--t-warn);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--color-bg);
+}
+body {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: "Heebo", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* האפליקציה ממלאת את גובה המסך. רק אזור התוכן נגלל, והניווט הוא חלק מהמבנה ולכן לא זז */
+.shell {
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  box-sizing: border-box;
+}
+.nav-shadow {
+  box-shadow: 0 4px 16px var(--t-shadow);
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.fill {
+  transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s;
+}
+input,
+select,
+textarea {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-mute);
+  opacity: 0.7;
+}
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+}
+button {
+  cursor: pointer;
+}
+/* סליידר צעדים: המילוי מתחיל מצד ההתחלה (ימין ב-RTL), כמו הפס שמעליו */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  touch-action: pan-y;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to left, var(--color-brand) var(--pct, 0%), var(--color-surf2) var(--pct, 0%));
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to left, var(--color-brand) var(--pct, 0%), var(--color-surf2) var(--pct, 0%));
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--color-brand);
+  border: 3px solid var(--color-surf);
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-brand);
+  border: 3px solid var(--color-surf);
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+button:disabled {
+  cursor: default;
+}
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
