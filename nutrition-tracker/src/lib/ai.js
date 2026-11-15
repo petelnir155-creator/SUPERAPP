@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL } from './config.js';
 import { macrosOf, nowTime, r1 } from './utils.js';
 
-async function callClaude(cfg, { system, content, maxTokens, temperature }) {
+async function callClaude(cfg, { system, content, maxTokens }) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -13,7 +13,6 @@ async function callClaude(cfg, { system, content, maxTokens, temperature }) {
     body: JSON.stringify({
       model: (cfg.model || '').trim() || DEFAULT_MODEL,
       max_tokens: maxTokens,
-      temperature,
       system,
       messages: [{ role: 'user', content }],
     }),
@@ -92,7 +91,6 @@ export async function aiActions(text, ctx, cfg) {
   const out = await callClaude(cfg, {
     system: AI_SYSTEM,
     maxTokens: 1024,
-    temperature: 0,
     content: 'USER_FOODS:\n' + JSON.stringify(foods) + '\n\nTODAY_LOG:\n' + JSON.stringify(today) + '\n\nMESSAGE:\n' + text,
   });
   return normalizeAi(out, ctx.foods);
@@ -115,7 +113,7 @@ export async function aiSuggest(info, cfg) {
     '\nEATEN_TODAY: ' + JSON.stringify(info.eaten) +
     '\nUSER_FOODS: ' + JSON.stringify(info.foods) +
     '\nTIME_NOW: ' + nowTime();
-  const out = await callClaude(cfg, { system: SUGGEST_SYSTEM, maxTokens: 400, temperature: 0.4, content });
+  const out = await callClaude(cfg, { system: SUGGEST_SYSTEM, maxTokens: 400, content });
   if (!out) throw new Error('תשובה ריקה');
   return out;
 }
