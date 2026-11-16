@@ -123,7 +123,7 @@ export default function App() {
             </header>
             {tab === 'today' && <Today key={user} user={user} today={today} msgs={chats[user]} setMsgs={setMsgs} aiCfg={aiCfg} />}
             {tab === 'workouts' && (
-              <Workouts key={user} user={user} today={today} msgs={wchats[user]} setMsgs={setWmsgs} aiCfg={aiCfg} onOpenExercises={() => setSettings('exercises')} />
+              <Workouts key={user} user={user} today={today} msgs={wchats[user]} setMsgs={setWmsgs} aiCfg={aiCfg} />
             )}
             {tab === 'history' && <History key={user} user={user} today={today} />}
           </div>

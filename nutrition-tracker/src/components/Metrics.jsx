@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react';
-import { WAIST_GOAL } from '../lib/config.js';
+import { WAIST_GOALS } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
 import { Store, useStoreVersion } from '../lib/store.js';
 import { fmtDay, num, r1, todayKey } from '../lib/utils.js';
 import { Field, Track, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
-function Measure({ title, unit, field, goal, data, onSave, onDelete, placeholder, intro }) {
+function Measure({ title, unit, field, goals = [], data, onSave, onDelete, placeholder, intro }) {
   const g = useG();
   const [val, setVal] = useState('');
   const sorted = useMemo(() => [...data].sort((a, b) => a.date.localeCompare(b.date)), [data]);
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
-  const hasGoal = typeof goal === 'number';
+  const hasGoal = goals.length > 0;
+  const nowV = last ? last[field] : 0;
+  const active = goals.find((x) => nowV > x.goal) || goals[goals.length - 1]; // היעד הפעיל: הראשון שעוד לא הושג
+  const goal = hasGoal ? active.goal : 0;
+  const daysLeft = hasGoal && active.by && nowV > goal ? Math.ceil((new Date(active.by + 'T12:00:00') - new Date(todayKey() + 'T12:00:00')) / 86400000) : null;
   const add = () => {
     const v = num(val);
     if (v <= 0) return;
@@ -27,7 +31,7 @@ function Measure({ title, unit, field, goal, data, onSave, onDelete, placeholder
   const H = 130;
   const P = 16;
   const vals = sorted.map((x) => x[field]);
-  const pts = hasGoal ? vals.concat([goal]) : vals;
+  const pts = hasGoal ? vals.concat(goals.map((x) => x.goal)) : vals;
   const lo = Math.min(...pts, 1e9) - 2;
   const hi = Math.max(...pts, -1e9) + 2;
   const X = (i) => (sorted.length === 1 ? W / 2 : P + (i * (W - 2 * P)) / (sorted.length - 1));
@@ -59,25 +63,33 @@ function Measure({ title, unit, field, goal, data, onSave, onDelete, placeholder
             </span>
             <span className="text-sm text-mute tnum">
               {hasGoal
-                ? now > goal ? 'נותרו ' + r1(now - goal) + ' ' + unit + ' ליעד' : 'הגעת ליעד ✓'
+                ? now > goal
+                  ? 'נותרו ' + r1(now - goal) + ' ' + unit + ' ליעד ' + goal + (active.label ? ' (עד ' + active.label + ')' : '')
+                  : 'הגעת ליעד ✓'
                 : sorted.length > 1 ? 'מההתחלה: ' + (change > 0 ? '+' : '') + change + ' ' + unit : 'מדידה ראשונה'}
             </span>
           </div>
           {hasGoal && (
             <>
               <Track label="התקדמות ליעד" now={pct} max={100} segs={[{ from: 0, w: pct, color: 'var(--color-brand)' }]} />
-              <p className="text-xs text-mute">
-                התחלה {start} {unit} · יעד {goal} {unit}
+              <p className="text-xs text-mute tnum">
+                התחלה {start} {unit} · {goals.length > 1 ? 'יעדים' : 'יעד'}: {goals.map((x) => x.goal + ' ' + unit + (x.label ? ' עד ' + x.label : '')).join(' · ')}
+                {daysLeft !== null ? (daysLeft > 0 ? ' · נותרו ' + daysLeft + ' ימים ליעד הנוכחי' : ' · מועד היעד הנוכחי עבר') : ''}
               </p>
             </>
           )}
           <svg viewBox={'0 0 ' + W + ' ' + H} className="w-full" role="img" aria-label={'גרף ' + title}>
             {hasGoal && (
               <>
-                <line x1={P} x2={W - P} y1={Y(goal)} y2={Y(goal)} stroke="var(--color-mute)" strokeDasharray="4 4" />
-                <text x={W - P} y={Y(goal) - 4} fontSize="10" fill="var(--color-mute)" textAnchor="end">
-                  יעד {goal}
-                </text>
+                {goals.map((x) => (
+                  <g key={x.goal}>
+                    <line x1={P} x2={W - P} y1={Y(x.goal)} y2={Y(x.goal)} stroke="var(--color-mute)" strokeDasharray="4 4" />
+                    <text x={W - P} y={Y(x.goal) - 4} fontSize="10" fill="var(--color-mute)" textAnchor="end" direction="ltr">
+                      {x.goal}
+                      {x.label ? ' · ' + x.label : ''}
+                    </text>
+                  </g>
+                ))}
               </>
             )}
             <polyline fill="none" stroke="var(--color-brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={sorted.map((p, i) => X(i) + ',' + Y(p[field])).join(' ')} />
@@ -119,10 +131,11 @@ export default function Metrics({ user }) {
   const [sub, setSub] = useState('weight');
   const weight = useMemo(() => Store.list('weight', user), [ver, user]);
   const waist = useMemo(() => Store.list('waist', user), [ver, user]);
+  const chest = useMemo(() => Store.list('chest', user), [ver, user]);
   return (
     <section className="space-y-4">
-      <div className="grid grid-cols-2 rounded-md border border-line bg-surf p-1" role="tablist" aria-label="סוג מדד">
-        {[['weight', 'משקל'], ['waist', 'היקפים']].map(([id, label]) => (
+      <div className="grid grid-cols-3 rounded-md border border-line bg-surf p-1" role="tablist" aria-label="סוג מדד">
+        {[['weight', 'משקל'], ['waist', 'היקף בטן'], ['chest', 'היקף חזה']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={sub === id} onClick={() => setSub(id)} className={'rounded py-2 font-bold text-sm ' + (sub === id ? chipOn : 'text-ink')}>
             {label}
           </button>
@@ -133,11 +146,17 @@ export default function Metrics({ user }) {
           key="weight" title="משקל" unit="ק״ג" field="kg" data={weight} placeholder="למשל 82.4" intro="מדידה נוספת באותו יום מחליפה את הקודמת."
           onSave={(date, v) => Store.put('weight', user, date, { date, kg: v })} onDelete={(date) => Store.remove('weight', user, date)}
         />
-      ) : (
+      ) : sub === 'waist' ? (
         <Measure
-          key="waist" title="היקף מותניים (פופיק)" unit="ס״מ" field="cm" goal={WAIST_GOAL} data={waist} placeholder="למשל 108.5"
+          key="waist" title="היקף בטן (טבור)" unit="ס״מ" field="cm" goals={WAIST_GOALS[user] || []} data={waist} placeholder="למשל 108.5"
           intro="מדידה פעם בשבוע. מדידה נוספת באותו יום מחליפה את הקודמת."
           onSave={(date, v) => Store.put('waist', user, date, { date, cm: v })} onDelete={(date) => Store.remove('waist', user, date)}
+        />
+      ) : (
+        <Measure
+          key="chest" title="היקף חזה" unit="ס״מ" field="cm" data={chest} placeholder="למשל 104.5"
+          intro="מדידה נוספת באותו יום מחליפה את הקודמת."
+          onSave={(date, v) => Store.put('chest', user, date, { date, cm: v })} onDelete={(date) => Store.remove('chest', user, date)}
         />
       )}
     </section>

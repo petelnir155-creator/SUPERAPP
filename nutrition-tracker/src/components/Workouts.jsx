@@ -4,12 +4,12 @@ import { useG } from '../lib/gender.js';
 import { aiWorkout } from '../lib/ai.js';
 import { Store, useStoreVersion } from '../lib/store.js';
 import {
-  EX_CATS, applyWorkout, catLabel, exercisesOf, fmtHours, fmtLog, hasData, lastPerformance, localWorkout, logsOf, prevText,
+  applyWorkout, catLabel, exercisesOf, fmtHours, fmtLog, hasData, lastPerformance, localWorkout, logsOf, prevText,
   removeShift, removeWorkout, saveLog, shiftsOf, startExercise,
 } from '../lib/workouts.js';
 import { fmtN, nowTime, num, uid } from '../lib/utils.js';
-import { ExerciseInfo, InfoButton } from './ExerciseInfo.jsx';
-import { IconSend, Modal, btnPrimary, chipOn, inputCls } from './ui.jsx';
+import ExerciseBank from './ExerciseBank.jsx';
+import { IconSend, Modal, btnPrimary } from './ui.jsx';
 
 /* שדה מספר שנשמר מיד כשעוזבים אותו, בלי כפתור שמירה */
 function NumInput({ value, onCommit, label, placeholder }) {
@@ -115,7 +115,7 @@ function Tile({ value, label }) {
 }
 
 /* האימונים שבוצעו היום: סיכום, ורשימת תרגילים בעיצוב של רשימת הארוחות */
-function TodayWorkouts({ user, today, ver, openId, setOpenId, onInfo }) {
+function TodayWorkouts({ user, today, ver, openId, setOpenId }) {
   const logs = useMemo(
     () => logsOf(user).filter((w) => w.date === today).sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.name.localeCompare(b.name, 'he')),
     [ver, user, today], // eslint-disable-line react-hooks/exhaustive-deps
@@ -147,12 +147,6 @@ function TodayWorkouts({ user, today, ver, openId, setOpenId, onInfo }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold">
                       {w.name}
-                      {exDoc ? (
-                        <>
-                          {' '}
-                          <InfoButton name={w.name} onClick={() => onInfo(exDoc)} />
-                        </>
-                      ) : null}
                     </div>
                     <div className="text-xs tnum" style={{ color: hasData(w) ? 'var(--color-ink)' : 'var(--color-mute)' }}>
                       <span className="text-mute">{catLabel(w.cat)} · </span>
@@ -168,6 +162,18 @@ function TodayWorkouts({ user, today, ver, openId, setOpenId, onInfo }) {
                   </button>
                 </div>
                 {open ? <Editor user={user} today={today} w={w} prev={prev} /> : null}
+                {open && exDoc && exDoc.tips && exDoc.tips.length ? (
+                  <ul className="space-y-1 border-t border-line pt-2" aria-label="דגשים">
+                    {exDoc.tips.map((t, i) => (
+                      <li key={i} className="flex gap-2 text-xs text-mute leading-relaxed">
+                        <span className="text-brand shrink-0" aria-hidden="true">
+                          •
+                        </span>
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             );
           })}
@@ -185,43 +191,6 @@ function TodayWorkouts({ user, today, ver, openId, setOpenId, onInfo }) {
         </ul>
       ) : null}
     </section>
-  );
-}
-
-function ExercisePicker({ user, today, onPick, onClose, onInfo }) {
-  const g = useG();
-  const ver = useStoreVersion();
-  const [cat, setCat] = useState('all');
-  const [q, setQ] = useState('');
-  const list = useMemo(() => exercisesOf(user), [ver, user]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = list.filter((e) => (cat === 'all' || e.cat === cat) && (!q.trim() || e.name.includes(q.trim())));
-  const chip = (id, label) => (
-    <button key={id} type="button" aria-pressed={cat === id} onClick={() => setCat(id)} className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold border border-line ' + (cat === id ? chipOn : 'text-ink')}>
-      {label}
-    </button>
-  );
-  return (
-    <Modal title="הוספת תרגיל" onClose={onClose}>
-      <input className={inputCls + ' mt-0 mb-3'} type="search" placeholder={g('חפש תרגיל', 'חפשי תרגיל')} aria-label="חיפוש תרגיל" value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-2">{[chip('all', 'הכול'), ...EX_CATS.map((c) => chip(c.id, c.label))]}</div>
-      <ul className="space-y-1.5">
-        {shown.map((e) => {
-          const prev = lastPerformance(user, e.id, today);
-          return (
-            <li key={e.id} className="flex items-stretch gap-1.5">
-              <button onClick={() => onPick(e)} className="flex-1 min-w-0 text-right border border-line bg-surf rounded-md px-3 py-2.5 flex justify-between gap-3 items-center">
-                <span className="font-bold min-w-0">{e.name}</span>
-                <span className="text-xs text-mute tnum shrink-0">{prev ? prevText(prev) : catLabel(e.cat)}</span>
-              </button>
-              <button onClick={() => onInfo(e)} aria-label={'דגשים: ' + e.name} className="w-11 rounded-md border border-line text-mute">
-                i
-              </button>
-            </li>
-          );
-        })}
-        {!shown.length ? <li className="text-sm text-mute px-1">לא נמצאו תרגילים</li> : null}
-      </ul>
-    </Modal>
   );
 }
 
@@ -382,38 +351,31 @@ function WorkoutChat({ user, today, msgs, setMsgs, aiCfg }) {
   );
 }
 
-export default function Workouts({ user, today, msgs, setMsgs, aiCfg, onOpenExercises }) {
+export default function Workouts({ user, today, msgs, setMsgs, aiCfg }) {
   const ver = useStoreVersion();
-  const [picking, setPicking] = useState(false);
+  const [bank, setBank] = useState(false);
   const [openId, setOpenId] = useState(null);
-  const [info, setInfo] = useState(null);
   return (
     <section className="flex-1 flex flex-col gap-3 px-4">
-      <TodayWorkouts user={user} today={today} ver={ver} openId={openId} setOpenId={setOpenId} onInfo={setInfo} />
+      <TodayWorkouts user={user} today={today} ver={ver} openId={openId} setOpenId={setOpenId} />
       <div className="mt-auto pt-2 flex flex-col gap-2">
         <WorkoutChat user={user} today={today} msgs={msgs} setMsgs={setMsgs} aiCfg={aiCfg} />
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setPicking(true)} className="rounded-lg border border-line bg-surf py-3 font-bold text-sm">
-            + תרגיל מהמאגר
-          </button>
-          <button onClick={onOpenExercises} className="rounded-lg border border-line bg-surf py-3 font-bold text-sm">
-            מאגר תרגילים
-          </button>
-        </div>
+        <button onClick={() => setBank(true)} className="rounded-lg border border-line bg-surf py-3 font-bold text-sm">
+          מאגר תרגילים
+        </button>
       </div>
-      {picking ? (
-        <ExercisePicker
-          user={user}
-          today={today}
-          onClose={() => setPicking(false)}
-          onInfo={setInfo}
-          onPick={(e) => {
-            setOpenId(startExercise(user, today, e, nowTime()));
-            setPicking(false);
-          }}
-        />
+      {bank ? (
+        <Modal title="מאגר תרגילים" onClose={() => setBank(false)}>
+          <ExerciseBank
+            user={user}
+            today={today}
+            onAdd={(e) => {
+              setOpenId(startExercise(user, today, e, nowTime()));
+              setBank(false);
+            }}
+          />
+        </Modal>
       ) : null}
-      {info ? <ExerciseInfo ex={info} onClose={() => setInfo(null)} /> : null}
     </section>
   );
 }

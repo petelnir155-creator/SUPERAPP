@@ -4,7 +4,14 @@ export const STEP_BONUS = 8000; // יעד בונוס
 export const STEP_SLIDER_MAX = 15000; // טווח הסליידר
 export const CUP_ML = 350; // כוס אחת במ״ל
 export const CUP_GOAL = 8; // יעד כוסות ליום (2,800 מ״ל)
-export const WAIST_GOAL = 100;
+/* יעדי היקף בטן/טבור (ס״מ). ניר: 97 עד ה-1.1 ואחר כך 94 עד ה-1.2. התקדמות נמדדת מול היעד הפעיל הראשון שעוד לא הושג */
+export const WAIST_GOALS = {
+  nir: [
+    { goal: 97, by: '2027-01-01', label: '1.1' },
+    { goal: 94, by: '2027-02-01', label: '1.2' },
+  ],
+  od: [{ goal: 100 }],
+};
 
 export const OVER = 'var(--color-over)';
 
