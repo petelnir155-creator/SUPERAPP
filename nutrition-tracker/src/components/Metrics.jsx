@@ -120,7 +120,7 @@ export default function Metrics({ user }) {
   const weight = useMemo(() => Store.list('weight', user), [ver, user]);
   const waist = useMemo(() => Store.list('waist', user), [ver, user]);
   return (
-    <section className="px-4 space-y-4">
+    <section className="space-y-4">
       <div className="grid grid-cols-2 rounded-md border border-line bg-surf p-1" role="tablist" aria-label="סוג מדד">
         {[['weight', 'משקל'], ['waist', 'היקפים']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={sub === id} onClick={() => setSub(id)} className={'rounded py-2 font-bold text-sm ' + (sub === id ? chipOn : 'text-ink')}>

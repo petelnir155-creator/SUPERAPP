@@ -214,3 +214,19 @@ export function MealList({ entries, onDelete, onEdit }) {
     </div>
   );
 }
+
+/* פריט אקורדיון: כותרת לחיצה שפותחת/סוגרת את התוכן */
+export function AccordionItem({ title, meta, open, onToggle, children }) {
+  return (
+    <div className="border border-line rounded-lg bg-surf overflow-hidden">
+      <button type="button" className="w-full flex justify-between items-center px-4 py-3.5 font-bold text-right" aria-expanded={open} onClick={onToggle}>
+        <span>{title}</span>
+        <span className="text-mute text-sm font-medium tnum">
+          {meta ? meta + ' ' : ''}
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {open ? <div className="border-t border-line">{children}</div> : null}
+    </div>
+  );
+}

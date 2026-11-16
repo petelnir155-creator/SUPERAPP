@@ -4,7 +4,10 @@ import { useG } from '../lib/gender.js';
 import { addEntryManual, editEntry, patchDay } from '../lib/actions.js';
 import { Store, useStoreVersion } from '../lib/store.js';
 import { catOf, fmtDay, fmtN, num, sumM, todayKey } from '../lib/utils.js';
-import { EditSheet, Field, MealChips, MealList, Switch, btnPrimary, inputCls } from './ui.jsx';
+import { AccordionItem, EditSheet, Field, MealChips, MealList, Switch, btnPrimary, inputCls } from './ui.jsx';
+import Metrics from './Metrics.jsx';
+import WorkShifts from './WorkShifts.jsx';
+import WorkoutHistory from './WorkoutHistory.jsx';
 
 function AddToDay({ user, date, foods }) {
   const g = useG();
@@ -107,7 +110,7 @@ function DayEditor({ user, date, day }) {
   );
 }
 
-export default function History({ user, today }) {
+function NutritionHistory({ user, today }) {
   const g = useG();
   const ver = useStoreVersion();
   const [open, setOpen] = useState(null);
@@ -138,7 +141,7 @@ export default function History({ user, today }) {
   const avg = (k) => (last7.length ? Math.round(last7.reduce((s, d) => s + d.t[k], 0) / last7.length) : 0);
 
   return (
-    <section className="px-4 space-y-3">
+    <div className="p-3 space-y-3">
       {editing && (
         <EditSheet
           key={editing.id}
@@ -223,6 +226,26 @@ export default function History({ user, today }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* מרכז נתונים: אקורדיון לפי המשתמש (אוד מקבלת גם "עבודה") */
+export default function History({ user, today }) {
+  const [open, setOpen] = useState(null);
+  const sections = [
+    { id: 'metrics', title: 'מדדים', body: <div className="p-3"><Metrics user={user} /></div> },
+    { id: 'nutrition', title: 'תזונה', body: <NutritionHistory user={user} today={today} /> },
+    { id: 'workouts', title: 'אימונים', body: <WorkoutHistory user={user} /> },
+    ...(PROFILES[user].instructor ? [{ id: 'work', title: 'עבודה', body: <WorkShifts user={user} today={today} /> }] : []),
+  ];
+  return (
+    <section className="px-4 space-y-2">
+      {sections.map((x) => (
+        <AccordionItem key={x.id} title={x.title} open={open === x.id} onToggle={() => setOpen(open === x.id ? null : x.id)}>
+          {x.body}
+        </AccordionItem>
+      ))}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-# מעקב תזונה
+# סופר א פטל
 
 React + Vite + Tailwind, עם סנכרון ל-Supabase. הנתונים נשמרים תמיד גם מקומית בדפדפן.
 
@@ -31,3 +31,9 @@ npm run dev
 - `supabase/setup.sql` טבלה סגורה ושתי פונקציות RPC.
 
 מפתח ה-API של Anthropic נשמר בדפדפן בלבד ואינו מסונכרן.
+
+## טבלאות לשאילתות (אופציונלי)
+
+`supabase/reporting.sql` יוצר את `exercise_db`, `workout_logs` ו-`work_shifts`, שמתמלאות אוטומטית מהנתונים שהאפליקציה כבר שומרת (טריגר על `nt_rows`). אפשר לשאול אותן ב-SQL Editor, אבל לא לכתוב אליהן ידנית. האפליקציה עצמה לא קוראת מהן.
+
+אם כבר הרצת את `reporting.sql` בעבר, מספיק להריץ פעם אחת את `supabase/update-2.sql`: הוא מוסיף ל-`exercise_db` את `muscle_img_url` ו-`movement_img_url`, ול-`work_shifts` את `hourly_rate`, `notes` ו-`total_amount`, ומעתיק מחדש את הנתונים הקיימים. הוא בטוח להרצה חוזרת.

@@ -1,23 +1,29 @@
 import { useMemo, useState } from 'react';
 import { useG } from '../lib/gender.js';
 import { Store, useStoreVersion } from '../lib/store.js';
-import { EX_CATS, addExercise, exercisesOf } from '../lib/workouts.js';
-import { Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
+import { EX_CATS, addExercise, exercisesOf, typeOf } from '../lib/workouts.js';
+import { ExerciseInfo, InfoButton } from './ExerciseInfo.jsx';
+import { AccordionItem, Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
 /* מאגר התרגילים: הוספה ידנית, שיוך לקטגוריה, עריכה ומחיקה */
+const EMPTY = { id: null, name: '', cat: 'chest', type: 'machine', en: '', tips: '', muscle_img_url: '', movement_img_url: '' };
+/* קבוצות השריר במאגר (בלי אירובי ופילאטיס). בטן מוצגת רק אם יש בה תרגילים */
+const PANEL_CATS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs'];
+
 export default function ExercisesPanel({ user }) {
   const g = useG();
   const ver = useStoreVersion();
   const list = useMemo(() => exercisesOf(user), [ver, user]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [form, setForm] = useState({ id: null, name: '', cat: 'chest' });
-  const [open, setOpen] = useState({ chest: true });
+  const [form, setForm] = useState(EMPTY);
+  const [info, setInfo] = useState(null);
+  const [open, setOpen] = useState(null); // אקורדיון: קבוצה אחת פתוחה בכל רגע
   const canSave = !!form.name.trim();
 
   const submit = () => {
     if (!canSave) return;
-    addExercise(user, form);
-    setOpen((o) => ({ ...o, [form.cat]: true }));
-    setForm({ id: null, name: '', cat: form.cat });
+    addExercise(user, { ...form, tips: form.tips.split('\n') });
+    setOpen(form.cat);
+    setForm({ ...EMPTY, cat: form.cat, type: form.type });
   };
 
   return (
@@ -34,8 +40,22 @@ export default function ExercisesPanel({ user }) {
             onKeyDown={(e) => e.key === 'Enter' && submit()}
           />
         </Field>
-        <div className="grid grid-cols-4 gap-2" role="group" aria-label="קטגוריה">
-          {EX_CATS.map((c) => (
+        <Field label="שם באנגלית (לא חובה)">
+          <input className={inputCls} type="text" dir="ltr" maxLength="60" value={form.en} onChange={(e) => setForm({ ...form, en: e.target.value })} />
+        </Field>
+        <Field label="דגשים טכניים (שורה לכל דגש)">
+          <textarea className={inputCls} rows="3" maxLength="600" value={form.tips} onChange={(e) => setForm({ ...form, tips: e.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="תמונת אנטומיה (כתובת)">
+            <input className={inputCls} type="url" dir="ltr" inputMode="url" placeholder="https://…" value={form.muscle_img_url} onChange={(e) => setForm({ ...form, muscle_img_url: e.target.value })} />
+          </Field>
+          <Field label="תמונת תנועה (כתובת)">
+            <input className={inputCls} type="url" dir="ltr" inputMode="url" placeholder="https://…" value={form.movement_img_url} onChange={(e) => setForm({ ...form, movement_img_url: e.target.value })} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-2" role="group" aria-label="קבוצת שריר">
+          {EX_CATS.filter((c) => PANEL_CATS.includes(c.id) || c.id === form.cat).map((c) => (
             <button
               key={c.id}
               type="button"
@@ -49,7 +69,7 @@ export default function ExercisesPanel({ user }) {
         </div>
         <div className="flex gap-2">
           {form.id ? (
-            <button onClick={() => setForm({ id: null, name: '', cat: form.cat })} className="flex-1 rounded-md py-2.5 font-bold border border-line">
+            <button onClick={() => setForm({ ...EMPTY, cat: form.cat, type: form.type })} className="flex-1 rounded-md py-2.5 font-bold border border-line">
               ביטול
             </button>
           ) : null}
@@ -60,40 +80,42 @@ export default function ExercisesPanel({ user }) {
       </div>
 
       <div className="space-y-2">
-        {EX_CATS.map((c) => {
+        {EX_CATS.filter((c) => PANEL_CATS.includes(c.id) || (c.id !== 'cardio' && c.id !== 'pilates' && list.some((e) => e.cat === c.id))).map((c) => {
           const items = list.filter((e) => e.cat === c.id);
-          const isOpen = !!open[c.id];
           return (
-            <div key={c.id} className="border border-line rounded-lg bg-surf overflow-hidden">
-              <button className="w-full flex justify-between items-center px-3 py-3 font-bold text-sm" aria-expanded={isOpen} onClick={() => setOpen({ ...open, [c.id]: !isOpen })}>
-                <span>{c.label}</span>
-                <span className="text-mute font-medium tnum">
-                  {items.length} {isOpen ? '▴' : '▾'}
-                </span>
-              </button>
-              {isOpen ? (
-                <ul className="border-t border-line divide-y divide-line">
-                  {items.length ? (
-                    items.map((e) => (
-                      <li key={e.id} className="flex items-center gap-2 px-3 py-2">
-                        <span className="flex-1 min-w-0 truncate text-sm">{e.name}</span>
-                        <button onClick={() => setForm({ id: e.id, name: e.name, cat: e.cat })} aria-label={'ערוך ' + e.name} className="w-8 h-8 rounded-md text-mute border border-line">
-                          ✎
-                        </button>
-                        <button onClick={() => Store.remove('ex', user, e.id)} aria-label={'מחק ' + e.name} className="w-8 h-8 rounded-md text-lg leading-none text-mute border border-line">
-                          ×
-                        </button>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="px-3 py-2 text-sm text-mute">אין תרגילים בקטגוריה</li>
-                  )}
-                </ul>
-              ) : null}
-            </div>
+            <AccordionItem key={c.id} title={c.label} meta={String(items.length)} open={open === c.id} onToggle={() => setOpen(open === c.id ? null : c.id)}>
+              <ul className="divide-y divide-line">
+                {items.length ? (
+                  items.map((e) => (
+                    <li key={e.id} className="flex items-center gap-2 px-3 py-2">
+                      <span className="flex-1 min-w-0 text-sm">{e.name}</span>
+                      <InfoButton name={e.name} onClick={() => setInfo(e)} />
+                      <button
+                        onClick={() =>
+                          setForm({
+                            id: e.id, name: e.name, cat: e.cat, type: typeOf(e) === 'run' ? 'run' : 'machine', en: e.en || '', tips: (e.tips || []).join('\n'),
+                            muscle_img_url: e.muscle_img_url || '', movement_img_url: e.movement_img_url || '',
+                          })
+                        }
+                        aria-label={'ערוך ' + e.name}
+                        className="w-8 h-8 rounded-md text-mute border border-line"
+                      >
+                        ✎
+                      </button>
+                      <button onClick={() => Store.remove('ex', user, e.id)} aria-label={'מחק ' + e.name} className="w-8 h-8 rounded-md text-lg leading-none text-mute border border-line">
+                        ×
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-sm text-mute">אין תרגילים בקטגוריה</li>
+                )}
+              </ul>
+            </AccordionItem>
           );
         })}
       </div>
+      {info ? <ExerciseInfo ex={info} onClose={() => setInfo(null)} /> : null}
     </div>
   );
 }

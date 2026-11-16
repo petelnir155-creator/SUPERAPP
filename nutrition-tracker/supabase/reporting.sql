@@ -6,7 +6,7 @@
 -- teaching shifts can be queried, filtered and charted with normal SQL:
 --   exercise_db   - the exercise library
 --   workout_logs  - one row per exercise per day
---   work_shifts   - teaching hours
+--   work_shifts   - work shifts: hours, hourly rate, notes, amount
 -- Never write to these tables by hand: the app overwrites them from nt_rows.
 
 create table if not exists public.exercise_db (
@@ -18,6 +18,8 @@ create table if not exists public.exercise_db (
   muscle_group text,
   workout_type text    not null default 'strength',  -- strength | machine | run | pilates
   tips         jsonb   not null default '[]'::jsonb,   -- technical pro tips, a JSON array of strings
+  muscle_img_url   text,                                -- anatomy image (URL), optional
+  movement_img_url text,                                -- movement image (URL), optional
   auto_created boolean not null default false,
   updated_ts   bigint  not null,
   primary key (sync_key, id)
@@ -51,6 +53,9 @@ create table if not exists public.work_shifts (
   shift_date date    not null,
   minutes    integer not null,
   hours      numeric generated always as (round(minutes / 60.0, 2)) stored,
+  hourly_rate numeric,                                  -- ILS per hour, optional
+  notes      text,                                      -- free text, optional
+  total_amount numeric generated always as (round(minutes / 60.0 * coalesce(hourly_rate, 0), 2)) stored,
   updated_ts bigint  not null,
   primary key (sync_key, id)
 );
@@ -59,6 +64,11 @@ create table if not exists public.work_shifts (
 alter table public.exercise_db  add column if not exists muscle_group text;
 alter table public.exercise_db  add column if not exists name_en text;
 alter table public.exercise_db  add column if not exists tips jsonb not null default '[]'::jsonb;
+alter table public.exercise_db  add column if not exists muscle_img_url text;
+alter table public.exercise_db  add column if not exists movement_img_url text;
+alter table public.work_shifts  add column if not exists hourly_rate numeric;
+alter table public.work_shifts  add column if not exists notes text;
+alter table public.work_shifts  add column if not exists total_amount numeric generated always as (round(minutes / 60.0 * coalesce(hourly_rate, 0), 2)) stored;
 alter table public.workout_logs add column if not exists muscle_group text;
 alter table public.workout_logs add column if not exists duration_minutes numeric;
 alter table public.workout_logs add column if not exists speed_kmh numeric;
@@ -84,14 +94,16 @@ begin
     if r.del then
       delete from public.exercise_db where sync_key = r.sync_key and id = r.id;
     else
-      insert into public.exercise_db (sync_key, id, usr, name, name_en, muscle_group, workout_type, tips, auto_created, updated_ts)
+      insert into public.exercise_db (sync_key, id, usr, name, name_en, muscle_group, workout_type, tips, muscle_img_url, movement_img_url, auto_created, updated_ts)
       values (r.sync_key, r.id, r.usr, coalesce(r.d->>'name', ''), r.d->>'en', r.d->>'cat',
               coalesce(r.d->>'type', case r.d->>'cat' when 'cardio' then 'machine' when 'pilates' then 'pilates' else 'strength' end),
               case when jsonb_typeof(r.d->'tips') = 'array' then r.d->'tips' else '[]'::jsonb end,
+              nullif(r.d->>'muscle_img_url', ''), nullif(r.d->>'movement_img_url', ''),
               coalesce((r.d->>'auto')::boolean, false), r.ts)
       on conflict (sync_key, id) do update
         set usr = excluded.usr, name = excluded.name, name_en = excluded.name_en, muscle_group = excluded.muscle_group,
-            workout_type = excluded.workout_type, tips = excluded.tips, auto_created = excluded.auto_created, updated_ts = excluded.updated_ts;
+            workout_type = excluded.workout_type, tips = excluded.tips, muscle_img_url = excluded.muscle_img_url,
+            movement_img_url = excluded.movement_img_url, auto_created = excluded.auto_created, updated_ts = excluded.updated_ts;
     end if;
 
   elsif r.kind = 'wk' then
@@ -126,10 +138,12 @@ begin
     if r.del then
       delete from public.work_shifts where sync_key = r.sync_key and id = r.id;
     else
-      insert into public.work_shifts (sync_key, id, usr, shift_date, minutes, updated_ts)
-      values (r.sync_key, r.id, r.usr, (r.d->>'date')::date, (r.d->>'minutes')::integer, r.ts)
+      insert into public.work_shifts (sync_key, id, usr, shift_date, minutes, hourly_rate, notes, updated_ts)
+      values (r.sync_key, r.id, r.usr, (r.d->>'date')::date, (r.d->>'minutes')::integer,
+              nullif((r.d->>'rate')::numeric, 0), nullif(r.d->>'note', ''), r.ts)
       on conflict (sync_key, id) do update
-        set usr = excluded.usr, shift_date = excluded.shift_date, minutes = excluded.minutes, updated_ts = excluded.updated_ts;
+        set usr = excluded.usr, shift_date = excluded.shift_date, minutes = excluded.minutes,
+            hourly_rate = excluded.hourly_rate, notes = excluded.notes, updated_ts = excluded.updated_ts;
     end if;
   end if;
 exception when others then

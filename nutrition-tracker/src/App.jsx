@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_MODEL, PROFILES } from './lib/config.js';
+import { APP_NAME, DEFAULT_MODEL, PROFILES } from './lib/config.js';
 import { Fem } from './lib/gender.js';
 import { Store, useStoreVersion } from './lib/store.js';
 import { Cloud, useCloud } from './lib/supabaseClient.js';
@@ -9,7 +9,6 @@ import ChatInput from './components/ChatInput.jsx';
 import { stateColor, stateText } from './components/CloudPanel.jsx';
 import FoodAdvisor from './components/FoodAdvisor.jsx';
 import History from './components/History.jsx';
-import Metrics from './components/Metrics.jsx';
 import ProgressBars from './components/ProgressBars.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Workouts from './components/Workouts.jsx';
@@ -57,7 +56,7 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
   );
 }
 
-const TITLES = { today: 'היום', workouts: 'אימונים', history: 'היסטוריה', metrics: 'מדדים' };
+const TITLES = { today: 'תזונה', workouts: 'אימונים', history: 'היסטוריה' };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -103,8 +102,10 @@ export default function App() {
           <div className="max-w-md mx-auto min-h-full flex flex-col pb-3">
             <header className="px-4 pt-5 pb-3 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h1 className="text-lg font-extrabold tracking-tight leading-tight">{TITLES[tab]}</h1>
-                <p className="text-xs text-mute truncate">{fmtDay(today)}</p>
+                <h1 className="text-lg font-extrabold tracking-tight leading-tight">{APP_NAME}</h1>
+                <p className="text-xs text-mute truncate">
+                  {TITLES[tab]} · {fmtDay(today)}
+                </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <div className="flex rounded-md border border-line bg-surf p-0.5 text-sm" role="tablist" aria-label="בחירת משתמש">
@@ -125,7 +126,6 @@ export default function App() {
               <Workouts key={user} user={user} today={today} msgs={wchats[user]} setMsgs={setWmsgs} aiCfg={aiCfg} onOpenExercises={() => setSettings('exercises')} />
             )}
             {tab === 'history' && <History key={user} user={user} today={today} />}
-            {tab === 'metrics' && <Metrics key={user} user={user} />}
           </div>
         </div>
         <nav
