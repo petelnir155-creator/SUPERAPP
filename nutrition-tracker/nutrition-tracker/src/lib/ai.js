@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL } from './config.js';
 import { macrosOf, nowTime, r1 } from './utils.js';
+import { EX_CATS, lastPerformance } from './workouts.js';
 
 async function callClaude(cfg, { system, content, maxTokens }) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -118,4 +119,53 @@ export async function aiSuggest(info, cfg) {
   const out = await callClaude(cfg, { system: SUGGEST_SYSTEM, maxTokens: 400, content });
   if (!out) throw new Error('תשובה ריקה');
   return out;
+}
+
+/* ---------- אימונים: ניתוח טקסט חופשי ליומן האימון ---------- */
+export const WORKOUT_SYSTEM = [
+  'You convert a Hebrew workout-diary message into JSON. Reply with ONLY one JSON object, no prose, no code fences:',
+  '{"actions":[{"exercise":<Hebrew exercise name>,"exId":<id from EXERCISES or null>,"cat":<one of ' + EX_CATS.map((c) => c.id).join('|') + '>,"sets":[{"reps":<number>,"kg":<number>}]}]}',
+  'Categories: chest=חזה, back=גב, shoulders=כתפיים, legs=רגליים, arms=ידיים, abs=בטן, cardio=אירובי.',
+  'HARD RULES:',
+  'W1. Every distinct exercise in the message appears in "actions" EXACTLY ONCE, with all of its sets inside its own "sets" array. Never repeat an exercise.',
+  'W2. Expand set counts into separate set objects: "3 סטים של 12 עם 60 קילו" becomes three objects {"reps":12,"kg":60}. If different sets have different values, list each set with its own values in order.',
+  'W3. Match each exercise to EXERCISES by meaning (spelling, prefixes and common synonyms differ) and return its id in "exId". If no exercise matches, set "exId" to null, give a clean Hebrew name, and choose the right "cat". Never invent an id.',
+  'W4. Body weight ("משקל גוף", "בלי משקל", pull-ups, push-ups with no load) means "kg":0. Extra load on a body-weight exercise ("מתח עם 10 קילו") is that load in kg.',
+  'W5. Cardio (cat "cardio"): put the duration in minutes in "reps" and use "kg":0, one set per bout. Convert hours to minutes.',
+  'W6. If the user says the same as last time ("כמו בפעם שעברה", "אותו דבר"), copy the sets from LAST_PERFORMANCE for that exercise. If a needed value is missing and cannot be inferred, use a typical value and never return null.',
+  'W7. Weights are in kg. Reps and sets are positive integers. Ignore anything that is not a workout. Output nothing except the JSON object.',
+].join('\n');
+
+const catOk = (c) => (EX_CATS.some((x) => x.id === c) ? c : null);
+
+export function normalizeWorkout(out, exercises) {
+  const a = out.indexOf('{');
+  const z = out.lastIndexOf('}');
+  if (a < 0 || z <= a) throw new Error('תשובה לא תקינה');
+  const raw = JSON.parse(out.slice(a, z + 1)).actions;
+  if (!Array.isArray(raw)) throw new Error('תשובה לא תקינה');
+  const actions = [];
+  for (const x of raw) {
+    if (!x || !Array.isArray(x.sets)) continue;
+    const ex = x.exId ? exercises.find((e) => e.id === x.exId) : null;
+    const name = ex ? ex.name : String(x.exercise || x.name || '').trim();
+    if (!name) continue;
+    const sets = x.sets.map((s) => ({ reps: numv(s && s.reps), kg: numv(s && s.kg) })).filter((s) => s.reps > 0);
+    if (sets.length) actions.push({ exId: ex ? ex.id : null, name, cat: ex ? ex.cat : catOk(x.cat), sets });
+  }
+  return { actions, unknown: [] };
+}
+
+export async function aiWorkout(text, ctx, cfg) {
+  const exercises = ctx.exercises.map((e) => ({ id: e.id, name: e.name, cat: e.cat }));
+  const last = ctx.exercises
+    .map((e) => ({ e, w: lastPerformance(ctx.user, e.id, ctx.today) }))
+    .filter((x) => x.w)
+    .map((x) => ({ exId: x.e.id, name: x.e.name, date: x.w.date, sets: x.w.sets.map((s) => ({ reps: s.reps, kg: s.kg })) }));
+  const out = await callClaude(cfg, {
+    system: WORKOUT_SYSTEM,
+    maxTokens: 1500,
+    content: 'EXERCISES:\n' + JSON.stringify(exercises) + '\n\nLAST_PERFORMANCE:\n' + JSON.stringify(last) + '\n\nMESSAGE:\n' + text,
+  });
+  return normalizeWorkout(out, ctx.exercises);
 }

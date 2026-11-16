@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL, OVER } from '../lib/config.js';
 import CloudPanel from './CloudPanel.jsx';
+import ExercisesPanel from './ExercisesPanel.jsx';
 import FoodsPanel from './FoodsPanel.jsx';
 import { Field, Modal, Switch, chipOn, inputCls } from './ui.jsx';
 
@@ -30,6 +31,7 @@ function AiPanel({ cfg, setCfg }) {
 
 const TABS = [
   ['foods', 'מאגר מזון'],
+  ['exercises', 'תרגילים'],
   ['ai', 'AI'],
   ['cloud', 'ענן'],
 ];
@@ -42,14 +44,14 @@ export default function SettingsModal({ user, theme, setTheme, tab, setTab, aiCf
         <span className="text-sm font-bold">מצב בהיר</span>
         <Switch on={theme === 'light'} onChange={(v) => setTheme(v ? 'light' : 'dark')} label="מצב בהיר" />
       </div>
-      <div className="grid grid-cols-3 rounded-md border border-line bg-surf p-1 mb-4" role="tablist" aria-label="הגדרות">
+      <div className="grid grid-cols-4 rounded-md border border-line bg-surf p-1 mb-4" role="tablist" aria-label="הגדרות">
         {TABS.map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={'rounded py-2 font-bold text-sm ' + (tab === id ? chipOn : 'text-ink')}>
             {label}
           </button>
         ))}
       </div>
-      {tab === 'foods' ? <FoodsPanel user={user} /> : tab === 'ai' ? <AiPanel cfg={aiCfg} setCfg={setAiCfg} /> : <CloudPanel />}
+      {tab === 'foods' ? <FoodsPanel user={user} /> : tab === 'exercises' ? <ExercisesPanel user={user} /> : tab === 'ai' ? <AiPanel cfg={aiCfg} setCfg={setAiCfg} /> : <CloudPanel />}
     </Modal>
   );
 }

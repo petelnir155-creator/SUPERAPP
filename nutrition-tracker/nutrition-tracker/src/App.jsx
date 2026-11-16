@@ -12,6 +12,7 @@ import History from './components/History.jsx';
 import Metrics from './components/Metrics.jsx';
 import ProgressBars from './components/ProgressBars.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import Workouts from './components/Workouts.jsx';
 import { IconGear, chipOn } from './components/ui.jsx';
 
 /* התאריך מתעדכן אוטומטית גם אם האפליקציה נשארת פתוחה אחרי חצות */
@@ -56,7 +57,7 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
   );
 }
 
-const TITLES = { today: 'היום', history: 'היסטוריה', metrics: 'מדדים' };
+const TITLES = { today: 'היום', workouts: 'אימונים', history: 'היסטוריה', metrics: 'מדדים' };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -85,6 +86,8 @@ export default function App() {
   };
   const [chats, setChats] = useState({ nir: [], od: [] });
   const setMsgs = (fn) => setChats((c) => ({ ...c, [user]: typeof fn === 'function' ? fn(c[user]) : fn }));
+  const [wchats, setWchats] = useState({ nir: [], od: [] });
+  const setWmsgs = (fn) => setWchats((c) => ({ ...c, [user]: typeof fn === 'function' ? fn(c[user]) : fn }));
 
   const today = useToday();
   const scroller = useRef(null);
@@ -118,6 +121,9 @@ export default function App() {
               </div>
             </header>
             {tab === 'today' && <Today key={user} user={user} today={today} msgs={chats[user]} setMsgs={setMsgs} aiCfg={aiCfg} />}
+            {tab === 'workouts' && (
+              <Workouts key={user} user={user} today={today} msgs={wchats[user]} setMsgs={setWmsgs} aiCfg={aiCfg} onOpenExercises={() => setSettings('exercises')} />
+            )}
             {tab === 'history' && <History key={user} user={user} today={today} />}
             {tab === 'metrics' && <Metrics key={user} user={user} />}
           </div>
