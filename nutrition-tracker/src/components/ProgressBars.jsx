@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CUP_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
 import { patchDay } from '../lib/actions.js';
-import { useStoreVersion } from '../lib/store.js';
 import { fmtN, num } from '../lib/utils.js';
-import { fmtHours, shiftTotals } from '../lib/workouts.js';
 import { Switch, Track } from './ui.jsx';
 
 function BarHead({ label, children }) {
@@ -169,23 +167,6 @@ function WaterBar({ cups, onSet }) {
   );
 }
 
-/* מדריכה: סך שעות ההדרכה של השבוע (מיום ראשון) ושל החודש. נרשם מטאב האימונים */
-function ShiftsRow({ user, today }) {
-  const ver = useStoreVersion();
-  const t = useMemoShifts(user, today, ver);
-  return (
-    <div>
-      <BarHead label="שעות הדרכה">
-        <b className="text-[15px] text-ink">{fmtHours(t.week)}</b>
-        {' שע׳ השבוע · '}
-        <b className="text-[15px] text-ink">{fmtHours(t.month)}</b>
-        {' שע׳ החודש'}
-      </BarHead>
-    </div>
-  );
-}
-const useMemoShifts = (user, today, ver) => useMemo(() => shiftTotals(user, today), [user, today, ver]); // eslint-disable-line react-hooks/exhaustive-deps
-
 export default function ProgressBars({ user, today, totals, day }) {
   const weekend = !!day.wk;
   const goals = goalsFor(user, weekend);
@@ -206,12 +187,6 @@ export default function ProgressBars({ user, today, totals, day }) {
       <div className="border-t border-line" />
       <StepsBar steps={day.steps || 0} onSet={(n) => patchDay(user, today, { steps: n })} />
       <WaterBar cups={day.water || 0} onSet={(n) => patchDay(user, today, { water: n })} />
-      {PROFILES[user].instructor ? (
-        <>
-          <div className="border-t border-line" />
-          <ShiftsRow user={user} today={today} />
-        </>
-      ) : null}
     </section>
   );
 }

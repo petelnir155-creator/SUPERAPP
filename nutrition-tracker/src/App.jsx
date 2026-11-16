@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { APP_NAME, DEFAULT_MODEL, PROFILES } from './lib/config.js';
+import { DEFAULT_MODEL, PROFILES } from './lib/config.js';
 import { Fem } from './lib/gender.js';
 import { Store, useStoreVersion } from './lib/store.js';
 import { Cloud, useCloud } from './lib/supabaseClient.js';
@@ -57,7 +57,7 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
   );
 }
 
-const TITLES = { today: 'תזונה', workouts: 'אימונים', history: 'היסטוריה', metrics: 'מדדים' };
+const TITLES = { today: 'היום', workouts: 'אימונים', history: 'היסטוריה', metrics: 'מדדים' };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -103,10 +103,8 @@ export default function App() {
           <div className="max-w-md mx-auto min-h-full flex flex-col pb-3">
             <header className="px-4 pt-5 pb-3 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h1 className="text-lg font-extrabold tracking-tight leading-tight">{APP_NAME}</h1>
-                <p className="text-xs text-mute truncate">
-                  {TITLES[tab]} · {fmtDay(today)}
-                </p>
+                <h1 className="text-lg font-extrabold tracking-tight leading-tight">{TITLES[tab]}</h1>
+                <p className="text-xs text-mute truncate">{fmtDay(today)}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <div className="flex rounded-md border border-line bg-surf p-0.5 text-sm" role="tablist" aria-label="בחירת משתמש">
