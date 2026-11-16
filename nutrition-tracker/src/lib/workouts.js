@@ -126,11 +126,11 @@ export function lastPerformance(user, exId, beforeDate) {
 /* מספרים וסימן × נשארים בסדר שמאל-לימין גם בתוך טקסט עברי */
 const ltr = (t) => '\u2066' + t + '\u2069';
 
-/* תיאור קצר של סטים: "60 ק״ג · 3×10" או, אם הסטים שונים, "60×12, 60×10, 55×8" (0 = בלי משקל נוסף) */
+/* תיאור קצר של סטים: "60 ק״ג · 3×10" או, אם הסטים שונים, "60×12, 60×10, 55×8" (0 ק״ג = בלי משקל נוסף) */
 export function fmtSets(sets) {
   if (!sets || !sets.length) return '';
   const same = sets.every((s) => s.reps === sets[0].reps && s.kg === sets[0].kg);
-  if (same) return (sets[0].kg > 0 ? r1(sets[0].kg) + ' ק״ג' : 'משקל גוף') + ' · ' + ltr(sets.length + '×' + sets[0].reps);
+  if (same) return (r1(sets[0].kg) + ' ק״ג') + ' · ' + ltr(sets.length + '×' + sets[0].reps);
   return sets.map((s) => ltr(r1(s.kg) + '×' + s.reps)).join(', ');
 }
 

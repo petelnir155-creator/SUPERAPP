@@ -2,7 +2,8 @@
 -- Requires setup.sql and reporting.sql to have been run before.
 -- 1. exercise_db: image columns muscle_img_url (anatomy) and movement_img_url (movement).
 -- 2. work_shifts: created if missing, and the columns hourly_rate (ILS per hour), notes and total_amount.
--- 3. The mirror function is replaced so the new fields are copied, then existing rows are re-copied.
+-- 3. The mirror function is replaced so the new fields are copied (image URLs already stored in exercise_db are kept),
+--    the function nt_exercise_media lets the app read the image URLs, then existing rows are re-copied.
 
 alter table public.exercise_db add column if not exists muscle_img_url text;
 alter table public.exercise_db add column if not exists movement_img_url text;
@@ -46,8 +47,10 @@ begin
               coalesce((r.d->>'auto')::boolean, false), r.ts)
       on conflict (sync_key, id) do update
         set usr = excluded.usr, name = excluded.name, name_en = excluded.name_en, muscle_group = excluded.muscle_group,
-            workout_type = excluded.workout_type, tips = excluded.tips, muscle_img_url = excluded.muscle_img_url,
-            movement_img_url = excluded.movement_img_url, auto_created = excluded.auto_created, updated_ts = excluded.updated_ts;
+            workout_type = excluded.workout_type, tips = excluded.tips,
+            -- image URLs may be set directly in exercise_db; an exercise edit in the app must not wipe them
+            muscle_img_url = coalesce(excluded.muscle_img_url, public.exercise_db.muscle_img_url),
+            movement_img_url = coalesce(excluded.movement_img_url, public.exercise_db.movement_img_url), auto_created = excluded.auto_created, updated_ts = excluded.updated_ts;
     end if;
 
   elsif r.kind = 'wk' then
@@ -100,6 +103,20 @@ begin
   perform public.nt_mirror_row(new);
   return null;
 end $$;
+
+-- The app reads exercise images from exercise_db through this function (the table itself stays closed to anon).
+create or replace function public.nt_exercise_media(p_key text)
+returns table (id text, usr text, muscle_img_url text, movement_img_url text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if length(coalesce(p_key, '')) < 16 then raise exception 'bad sync key'; end if;
+  return query
+    select e.id, e.usr, e.muscle_img_url, e.movement_img_url
+    from public.exercise_db e
+    where e.sync_key = p_key and (e.muscle_img_url is not null or e.movement_img_url is not null);
+end $$;
+revoke all on function public.nt_exercise_media(text) from public;
+grant execute on function public.nt_exercise_media(text) to anon, authenticated;
 
 revoke all on function public.nt_mirror_row(public.nt_rows) from public, anon, authenticated;
 

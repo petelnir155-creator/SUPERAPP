@@ -86,12 +86,12 @@ function Editor({ user, today, w, prev }) {
         <div key={i} className="flex items-center gap-2">
           <span className="w-5 text-xs text-mute tnum shrink-0">{i + 1}</span>
           <div className="flex-1 flex items-center gap-1.5">
-            <NumInput value={s.kg} label={'משקל, סט ' + (i + 1)} placeholder="גוף" onCommit={(n) => patch(i, { kg: n })} />
-            <Unit>ק״ג</Unit>
+            <NumInput value={s.reps} label={'חזרות, סט ' + (i + 1)} placeholder="0" onCommit={(n) => patch(i, { reps: Math.round(n) })} />
+            <Unit>חזרות</Unit>
           </div>
           <div className="flex-1 flex items-center gap-1.5">
-            <NumInput value={s.reps} label={'חזרות, סט ' + (i + 1)} placeholder="0" onCommit={(n) => patch(i, { reps: Math.round(n) })} />
-            <Unit>חז׳</Unit>
+            <NumInput value={s.kg} label={'משקל בק״ג, סט ' + (i + 1)} placeholder="0" onCommit={(n) => patch(i, { kg: n })} />
+            <Unit>ק״ג</Unit>
           </div>
           <button onClick={() => setSets(w.sets.filter((_, j) => j !== i))} aria-label={'מחק סט ' + (i + 1)} className="w-8 h-8 rounded-md text-lg leading-none text-mute border border-line shrink-0">
             ×

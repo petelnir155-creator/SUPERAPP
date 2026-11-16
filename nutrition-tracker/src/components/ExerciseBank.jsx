@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useG } from '../lib/gender.js';
 import { Store, useStoreVersion } from '../lib/store.js';
+import { Cloud } from '../lib/supabaseClient.js';
+import { useExerciseMedia } from '../lib/exerciseMedia.js';
 import { EX_CATS, addExercise, exercisesOf, lastPerformance, prevText } from '../lib/workouts.js';
 import { AccordionItem, Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
@@ -99,6 +101,9 @@ function ExerciseCard({ user, today, e, onAdd, onEdit }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const prev = lastPerformance(user, e.id, today);
   const tips = e.tips || [];
+  const media = useExerciseMedia().get(user, e.id); // העמודות muscle_img_url / movement_img_url ב-exercise_db
+  const muscleUrl = e.muscle_img_url || media.m; // כתובת שהוזנה בעריכה גוברת, אחרת מהמסד
+  const moveUrl = e.movement_img_url || media.v;
   return (
     <div className="px-3 pb-3 pt-1 space-y-3">
       {e.en ? (
@@ -107,8 +112,8 @@ function ExerciseCard({ user, today, e, onAdd, onEdit }) {
         </div>
       ) : null}
       <div className="grid grid-cols-2 gap-2.5">
-        <ImageSlot url={e.muscle_img_url} label="אנטומיה (שריר)" icon="muscle" />
-        <ImageSlot url={e.movement_img_url} label="תנועה" icon="move" />
+        <ImageSlot key={muscleUrl} url={muscleUrl} label="אנטומיה (שריר)" icon="muscle" />
+        <ImageSlot key={moveUrl} url={moveUrl} label="תנועה" icon="move" />
       </div>
       {tips.length ? (
         <div>
@@ -157,6 +162,9 @@ export default function ExerciseBank({ user, today, onAdd }) {
   const [openEx, setOpenEx] = useState(null); // רמה 3: תרגיל אחד מורחב
   const [form, setForm] = useState(null); // null | EMPTY | תרגיל בעריכה
   const [q, setQ] = useState('');
+  useEffect(() => {
+    Cloud.refreshMedia(); // רענון תמונות מהמסד בכל פתיחת המאגר
+  }, []);
   const query = q.trim().toLowerCase();
   const match = (e) => !query || e.name.toLowerCase().includes(query) || (e.en || '').toLowerCase().includes(query);
 

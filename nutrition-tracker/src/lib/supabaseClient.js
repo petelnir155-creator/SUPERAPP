@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Store } from './store.js';
+import { Media } from './exerciseMedia.js';
 import { LS } from './utils.js';
 
 /*
@@ -64,6 +65,16 @@ async function rpc(fn, args) {
   }
 }
 
+/* תמונות התרגילים מ-exercise_db. כישלון כאן (למשל הפונקציה עוד לא הותקנה) לא פוגע בסנכרון */
+async function pullMedia() {
+  if (!enabled()) return;
+  try {
+    Media.set(await rpc('nt_exercise_media', { p_key: cfg.sync }));
+  } catch {
+    /* נשארים עם מה שנשמר מקומית */
+  }
+}
+
 async function sync() {
   if (!enabled()) { setStatus({ state: 'off', msg: '' }); return; }
   if (running) { again = true; return; }
@@ -90,6 +101,7 @@ async function sync() {
       LS.set(cursorKey(), since);
       if (rows.length < 500) break;
     }
+    await pullMedia();
     setStatus({ state: 'ok', msg: '', at: Date.now() });
   } catch (e) {
     setStatus({ state: navigator.onLine === false ? 'offline' : 'error', msg: String((e && e.message) || e).slice(0, 220) });
@@ -112,6 +124,7 @@ export const Cloud = {
   envDefaults: () => ENV,
   enabled,
   sync,
+  refreshMedia: pullMedia,
   /* שמירת חיבור חדש: מעלה את כל המידע המקומי ומושך את מה שכבר בענן */
   configure(next) {
     const before = effective().url + effective().key + cfg.sync;
