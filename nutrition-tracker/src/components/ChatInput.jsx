@@ -18,7 +18,7 @@ function BotMessage({ m, last, onUndo }) {
           <div key={e.id} className="flex justify-between gap-3 tnum">
             <span className="min-w-0">
               <span className="text-brand">＋</span> {e.name} <span className="text-mute">· {r1(e.g)} גר׳</span>
-              {e.est ? <span className="text-xs text-amber-400"> · הערכה</span> : null}
+              {e.est ? <span className="text-xs text-warn"> · הערכה</span> : null}
             </span>
             <span className="text-mute shrink-0">{fmtN(e.kcal)} קק״ל · {r1(e.p)} ח׳</span>
           </div>
@@ -27,7 +27,7 @@ function BotMessage({ m, last, onUndo }) {
         out.updated.map((u) => (
           <div key={u.id} className="flex justify-between gap-3 tnum">
             <span className="min-w-0">
-              <span className="text-amber-400">↻</span> {u.name} <span className="text-mute">· {r1(u.from)} ← {r1(u.to)} גר׳</span>
+              <span className="text-warn">↻</span> {u.name} <span className="text-mute">· {r1(u.from)} ← {r1(u.to)} גר׳</span>
             </span>
             <span className="text-mute shrink-0">{fmtN(u.kcal)} קק״ל</span>
           </div>
@@ -118,7 +118,7 @@ export default function ChatInput({ user, today, msgs, setMsgs, aiCfg }) {
   return (
     <section className="border border-line bg-surf rounded-lg p-3 flex flex-col gap-3" aria-label="צ׳אט הזנה">
       {msgs.length > 0 || busy ? (
-        <div ref={listRef} aria-live="polite" className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: '34dvh' }}>
+        <div ref={listRef} aria-live="polite" className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: '26dvh' }}>
           {msgs.map((m, i) =>
             m.role === 'user' ? (
               <div key={i} className="self-start max-w-[94%] rounded-lg px-3 py-2 text-sm border border-line">

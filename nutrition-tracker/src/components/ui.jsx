@@ -4,8 +4,8 @@ import { useG } from '../lib/gender.js';
 import { fmtN, nowTime, num, r1, r2, todayKey } from '../lib/utils.js';
 
 export const inputCls = 'mt-1 w-full rounded-md px-3 py-2.5 text-base text-ink';
-export const btnPrimary = 'bg-brand text-[#04110E]';
-export const chipOn = 'bg-brand text-[#04110E] border-brand';
+export const btnPrimary = 'bg-brand text-onbrand';
+export const chipOn = 'bg-brand text-onbrand border-brand';
 
 export function Field({ label, children }) {
   return (
@@ -28,7 +28,7 @@ export function Switch({ on, onChange, label }) {
       style={{ width: 38, height: 22 }}
     >
       <span
-        className={'absolute rounded-full ' + (on ? 'bg-[#04110E]' : 'bg-mute')}
+        className={'absolute rounded-full ' + (on ? 'bg-onbrand' : 'bg-mute')}
         style={{ top: 2, width: 16, height: 16, insetInlineStart: on ? 18 : 2, transition: 'inset-inline-start .15s' }}
       />
     </button>
@@ -192,10 +192,10 @@ export function MealList({ entries, onDelete, onEdit }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold truncate">
                       {e.name}
-                      {e.est ? <span className="text-xs font-medium text-amber-400"> הערכה</span> : null}
+                      {e.est ? <span className="text-xs font-medium text-warn"> הערכה</span> : null}
                     </div>
                     <div className="text-xs text-mute tnum">
-                      {r1(e.qty)} {e.unit === 'serving' ? 'מנות' : 'גרם'} · {r1(e.p)} חלבון · {r1(e.c)} פחמ׳ · {r1(e.f)} שומן
+                      {r1(e.qty)} {e.unit === 'serving' ? 'מנות' : 'גרם'} · {r1(e.p)} חלבון · {r1(e.c)} פחמ׳ · {r1(e.f)} שומן · {r1(e.fb || 0)} סיבים
                     </div>
                   </div>
                   <div className="text-sm font-extrabold tnum">{fmtN(e.kcal)}</div>

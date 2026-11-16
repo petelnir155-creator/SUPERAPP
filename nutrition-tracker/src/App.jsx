@@ -3,6 +3,7 @@ import { DEFAULT_MODEL, PROFILES } from './lib/config.js';
 import { Fem } from './lib/gender.js';
 import { Store, useStoreVersion } from './lib/store.js';
 import { Cloud, useCloud } from './lib/supabaseClient.js';
+import { applyTheme, getTheme, saveTheme } from './lib/theme.js';
 import { LS, fmtDay, sumM, todayKey } from './lib/utils.js';
 import ChatInput from './components/ChatInput.jsx';
 import { stateColor, stateText } from './components/CloudPanel.jsx';
@@ -11,6 +12,7 @@ import History from './components/History.jsx';
 import Metrics from './components/Metrics.jsx';
 import ProgressBars from './components/ProgressBars.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import Workouts from './components/Workouts.jsx';
 import { IconGear, chipOn } from './components/ui.jsx';
 
 /* התאריך מתעדכן אוטומטית גם אם האפליקציה נשארת פתוחה אחרי חצות */
@@ -44,15 +46,18 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
   const totals = useMemo(() => sumM(entries), [entries]);
   const day = useMemo(() => Store.get('day', user, today) || { date: today, water: 0, steps: 0, wk: false }, [ver, user, today]);
   return (
-    <section className="px-4 space-y-3">
+    <section className="flex-1 flex flex-col gap-3 px-4">
       <ProgressBars user={user} today={today} totals={totals} day={day} />
-      <FoodAdvisor user={user} totals={totals} weekend={!!day.wk} entries={entries} aiCfg={aiCfg} />
-      <ChatInput user={user} today={today} msgs={msgs} setMsgs={setMsgs} aiCfg={aiCfg} />
+      {/* אזור ה-AI צמוד לתחתית, האלמנט האחרון לפני הניווט */}
+      <div className="mt-auto pt-2 flex flex-col gap-2">
+        <ChatInput user={user} today={today} msgs={msgs} setMsgs={setMsgs} aiCfg={aiCfg} />
+        <FoodAdvisor user={user} totals={totals} weekend={!!day.wk} entries={entries} aiCfg={aiCfg} />
+      </div>
     </section>
   );
 }
 
-const TITLES = { today: 'היום', history: 'היסטוריה', metrics: 'מדדים' };
+const TITLES = { today: 'היום', workouts: 'אימונים', history: 'היסטוריה', metrics: 'מדדים' };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -63,6 +68,15 @@ export default function App() {
     LS.set('nt2:user', user);
   }, [user]);
 
+  const [theme, setThemeState] = useState(getTheme);
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+  const setTheme = (t) => {
+    setThemeState(t);
+    saveTheme(t);
+  };
+
   const [tab, setTab] = useState('today');
   const [settings, setSettings] = useState(null); // null | 'foods' | 'ai' | 'cloud'
   const [aiCfg, setAiCfgState] = useState(() => LS.get('nt2:ai', { key: '', model: DEFAULT_MODEL }));
@@ -72,6 +86,8 @@ export default function App() {
   };
   const [chats, setChats] = useState({ nir: [], od: [] });
   const setMsgs = (fn) => setChats((c) => ({ ...c, [user]: typeof fn === 'function' ? fn(c[user]) : fn }));
+  const [wchats, setWchats] = useState({ nir: [], od: [] });
+  const setWmsgs = (fn) => setWchats((c) => ({ ...c, [user]: typeof fn === 'function' ? fn(c[user]) : fn }));
 
   const today = useToday();
   const scroller = useRef(null);
@@ -84,7 +100,7 @@ export default function App() {
     <Fem.Provider value={!!PROFILES[user].fem}>
       <div className="shell flex flex-col">
         <div ref={scroller} className="flex-1 min-h-0 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
-          <div className="max-w-md mx-auto pb-6">
+          <div className="max-w-md mx-auto min-h-full flex flex-col pb-3">
             <header className="px-4 pt-5 pb-3 flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-lg font-extrabold tracking-tight leading-tight">{TITLES[tab]}</h1>
@@ -105,12 +121,15 @@ export default function App() {
               </div>
             </header>
             {tab === 'today' && <Today key={user} user={user} today={today} msgs={chats[user]} setMsgs={setMsgs} aiCfg={aiCfg} />}
+            {tab === 'workouts' && (
+              <Workouts key={user} user={user} today={today} msgs={wchats[user]} setMsgs={setWmsgs} aiCfg={aiCfg} onOpenExercises={() => setSettings('exercises')} />
+            )}
             {tab === 'history' && <History key={user} user={user} today={today} />}
             {tab === 'metrics' && <Metrics key={user} user={user} />}
           </div>
         </div>
         <nav
-          className="shrink-0 mx-auto rounded-lg border border-line bg-surf overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,.4)]"
+          className="shrink-0 mx-auto rounded-lg border border-line bg-surf overflow-hidden nav-shadow"
           style={{ marginBottom: 'calc(var(--nav-bottom) + env(safe-area-inset-bottom, 0px))', width: 'calc(100% - 1.5rem)', maxWidth: '28rem' }}
         >
           <div className="flex">
@@ -127,7 +146,7 @@ export default function App() {
           </div>
         </nav>
       </div>
-      {settings && <SettingsModal user={user} tab={settings} setTab={setSettings} aiCfg={aiCfg} setAiCfg={setAiCfg} onClose={() => setSettings(null)} />}
+      {settings && <SettingsModal user={user} theme={theme} setTheme={setTheme} tab={settings} setTab={setSettings} aiCfg={aiCfg} setAiCfg={setAiCfg} onClose={() => setSettings(null)} />}
     </Fem.Provider>
   );
 }

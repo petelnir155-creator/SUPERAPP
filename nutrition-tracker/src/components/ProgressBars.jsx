@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CUP_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, goalsFor } from '../lib/config.js';
+import { useEffect, useRef, useState } from 'react';
+import { CUP_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
 import { patchDay } from '../lib/actions.js';
 import { fmtN, num } from '../lib/utils.js';
 import { Switch, Track } from './ui.jsx';
@@ -31,59 +31,108 @@ function NutrientBar({ g, value }) {
   );
 }
 
-/* צעדים: עד 6,000 צבע אחד, ומעבר לכך ממשיכים בצבע אחר אל יעד הבונוס 8,000 */
+/*
+  צעדים: עד 6,000 צבע אחד, ומעבר לכך ממשיכים בצבע אחר אל יעד הבונוס 8,000.
+  העדכון ישיר: גרירת הסליידר, כפתורי ± או הקלדה. הכול נשמר מיד, בלי כפתור שמירה.
+*/
 function StepsBar({ steps, onSet }) {
-  const base = (Math.min(steps, STEP_GOAL) / STEP_BONUS) * 100;
-  const bonus = (Math.max(0, Math.min(steps, STEP_BONUS) - STEP_GOAL) / STEP_BONUS) * 100;
-  const pct = Math.round((steps / STEP_GOAL) * 100);
-  const reached = steps >= STEP_GOAL;
-  const full = steps >= STEP_BONUS;
-  const accent = full ? '#FACC15' : reached ? '#4ADE80' : 'var(--color-ink)';
+  const [draft, setDraft] = useState(null); // ערך תוך כדי גרירה, כדי שהפס יזוז בזמן אמת
   const [txt, setTxt] = useState(null);
-  const commit = () => {
+  const timer = useRef(null);
+  const pending = useRef(null);
+
+  const flush = () => {
+    clearTimeout(timer.current);
+    if (pending.current !== null) {
+      onSet(pending.current);
+      pending.current = null;
+      setDraft(null); // מכאן הערך נקרא מהחנות
+    }
+  };
+  useEffect(() => flush, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const drag = (v) => {
+    setDraft(v);
+    pending.current = v;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(flush, 200); // כתיבה לחנות בזמן אמת, בלי להציף בכל פיקסל
+  };
+  const release = () => flush();
+  const bump = (d) => onSet(Math.max(0, steps + d));
+  const commitTxt = () => {
     if (txt !== null) {
       onSet(Math.round(num(txt)));
       setTxt(null);
     }
   };
+
+  const v = draft !== null ? draft : steps;
+  const base = (Math.min(v, STEP_GOAL) / STEP_BONUS) * 100;
+  const bonus = (Math.max(0, Math.min(v, STEP_BONUS) - STEP_GOAL) / STEP_BONUS) * 100;
+  const pct = Math.round((v / STEP_GOAL) * 100);
+  const reached = v >= STEP_GOAL;
+  const full = v >= STEP_BONUS;
+  const accent = full ? 'var(--color-gold)' : reached ? 'var(--color-good)' : 'var(--color-ink)';
+  const btn = 'rounded-md border border-line px-2.5 py-1 font-bold text-ink';
   return (
     <div>
       <BarHead label="צעדים">
-        <b className="text-[15px]" style={{ color: accent }}>{fmtN(steps)}</b>
+        <b className="text-[15px]" style={{ color: accent }}>{fmtN(v)}</b>
         {' / ' + fmtN(STEP_GOAL) + ' · '}
         <span style={{ color: accent }}>{pct}%</span>
       </BarHead>
       <Track
         label="צעדים"
-        now={steps}
+        now={v}
         max={STEP_BONUS}
         ticks={[(STEP_GOAL / STEP_BONUS) * 100]}
         segs={[{ from: 0, w: base, color: '#2DD4BF' }, { from: base, w: bonus, color: '#FACC15' }]}
       />
-      <div className="flex items-center justify-between mt-1.5 text-[11px] text-mute tnum">
-        <span>{full ? 'בונוס הושג ✓' : reached ? 'עד הבונוס ' + fmtN(STEP_BONUS - steps) : 'עד היעד ' + fmtN(STEP_GOAL - steps)}</span>
+      <input
+        type="range"
+        min="0"
+        max={STEP_SLIDER_MAX}
+        step="100"
+        value={Math.min(v, STEP_SLIDER_MAX)}
+        aria-label="צעדים"
+        onChange={(e) => drag(Number(e.target.value))}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onKeyUp={release}
+        onBlur={release}
+        className="block w-full mt-2 h-6"
+        style={{ '--pct': Math.min(100, (v / STEP_SLIDER_MAX) * 100) + '%' }}
+      />
+      <div className="flex items-center justify-between mt-1 text-[11px] text-mute tnum">
+        <span>{full ? 'בונוס הושג ✓' : reached ? 'עד הבונוס ' + fmtN(STEP_BONUS - v) : 'עד היעד ' + fmtN(STEP_GOAL - v)}</span>
         <span className="flex items-center gap-1.5">
+          <button onClick={() => bump(-500)} disabled={steps <= 0} aria-label="הפחת 500 צעדים" className={btn + ' disabled:opacity-40'}>
+            <span dir="ltr">−500</span>
+          </button>
+          <button onClick={() => bump(500)} aria-label="הוסף 500 צעדים" className={btn}>
+            <span dir="ltr">+500</span>
+          </button>
+          <button onClick={() => bump(1000)} aria-label="הוסף 1,000 צעדים" className={btn}>
+            <span dir="ltr">+1,000</span>
+          </button>
           <input
             type="number"
             inputMode="numeric"
             min="0"
-            aria-label="עדכון צעדים"
-            placeholder="עדכון"
+            aria-label="הקלדת צעדים"
+            placeholder="הקלד"
             value={txt !== null ? txt : ''}
             onChange={(e) => setTxt(e.target.value)}
-            onBlur={commit}
+            onBlur={commitTxt}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                commit();
+                commitTxt();
                 e.target.blur();
               }
             }}
-            className="w-20 rounded-md px-2 py-1 text-[13px] text-ink text-center"
+            className="w-16 rounded-md px-2 py-1 text-[13px] text-ink text-center"
           />
-          <button onClick={() => onSet(steps + 1000)} className="rounded-md border border-line px-2 py-1 font-bold text-ink">
-            <span dir="ltr">+1,000</span>
-          </button>
         </span>
       </div>
     </div>
@@ -99,7 +148,7 @@ function WaterBar({ cups, onSet }) {
   return (
     <div>
       <BarHead label="מים">
-        <b className="text-[15px]" style={{ color: pct >= 100 ? '#4ADE80' : 'var(--color-ink)' }}>{fmtN(ml)}</b>
+        <b className="text-[15px]" style={{ color: pct >= 100 ? 'var(--color-good)' : 'var(--color-ink)' }}>{fmtN(ml)}</b>
         {' / ' + fmtN(goal) + ' מ״ל · ' + pct + '%'}
       </BarHead>
       <Track label="מים" now={ml} max={goal} divs={CUP_GOAL} segs={[{ from: 0, w: Math.min(100, pct), color: '#22D3EE' }]} />

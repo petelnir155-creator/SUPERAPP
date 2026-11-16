@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL } from './config.js';
 import { macrosOf, nowTime, r1 } from './utils.js';
+import { EX_CATS, lastPerformance } from './workouts.js';
 
 async function callClaude(cfg, { system, content, maxTokens }) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -36,7 +37,7 @@ export const AI_SYSTEM = [
   'You convert a Hebrew food-diary message into JSON actions. Reply with ONLY one JSON object, no prose, no code fences:',
   '{"actions":[ ... ]}',
   'Two action types:',
-  '1) {"action":"add","name":<Hebrew dish name>,"grams":<total grams or ml eaten, number>,"kcal":<total>,"p":<protein g>,"c":<carb g>,"f":<fat g>,"foodId":<id from USER_FOODS or null>}',
+  '1) {"action":"add","name":<Hebrew dish name>,"grams":<total grams or ml eaten, number>,"kcal":<total>,"p":<protein g>,"c":<carb g>,"f":<fat g>,"fb":<dietary fiber g>,"foodId":<id from USER_FOODS or null>}',
   '2) {"action":"update","id":<id of an entry from TODAY_LOG>,"grams":<the NEW total grams for that entry>}',
   'HARD RULES:',
   'R1. NO DUPLICATES. Every distinct food in the message appears in "actions" EXACTLY ONCE. Never output the same food twice, never output an item and also one of its parts.',
@@ -45,6 +46,7 @@ export const AI_SYSTEM = [
   'R4. CORRECTIONS. If the message corrects something already in TODAY_LOG (cues: "ולא", "בעצם", "בסוף", "תקן", "שיניתי", "במקום", "התכוונתי", or a number that replaces an earlier amount of the same food), return ONE "update" action with that entrys id and the new total grams. NEVER add a new row for a correction, and never also add the old amount. The number after "ולא" is the OLD wrong value and must be ignored.',
   'R5. Only use "update" with an id that appears in TODAY_LOG. If nothing matches, use "add".',
   'R6. If an amount is missing assume a typical portion. Use realistic estimates. Output nothing except the JSON object.',
+  'R7. FIBER. Always return "fb" (total dietary fiber in grams for the whole eaten amount, 0 if none) for every estimated item, using realistic values (for example vegetables, legumes, whole grains and fruit contain fiber; meat, fish, eggs, oil and dairy are about 0).',
 ].join('\n');
 
 const numv = (v) => {
@@ -76,7 +78,7 @@ export function normalizeAi(out, foods) {
     } else {
       actions.push({
         action: 'add', foodId: null, name: String(x.name), qty: Math.round(grams), unit: 'gram', g: grams, est: true,
-        kcal: Math.min(numv(x.kcal), 5000), p: numv(x.p), c: numv(x.c), f: numv(x.f),
+        kcal: Math.min(numv(x.kcal), 5000), p: numv(x.p), c: numv(x.c), f: numv(x.f), fb: Math.min(numv(x.fb), 200),
       });
     }
   }
@@ -85,7 +87,7 @@ export function normalizeAi(out, foods) {
 
 export async function aiActions(text, ctx, cfg) {
   const foods = ctx.foods.map((f) => ({
-    id: f.id, name: f.name, per100g: { kcal: f.kcal, p: f.p, c: f.c, f: f.f }, unit: f.uname || null, unitGrams: f.serving,
+    id: f.id, name: f.name, per100g: { kcal: f.kcal, p: f.p, c: f.c, f: f.f, fb: f.fb || 0 }, unit: f.uname || null, unitGrams: f.serving,
   }));
   const today = ctx.entries.map((e) => ({ id: e.id, name: e.name, grams: r1(e.g), meal: e.meal, time: e.time, kcal: Math.round(e.kcal) }));
   const out = await callClaude(cfg, {
@@ -102,6 +104,7 @@ export const SUGGEST_SYSTEM = [
   'You get the remaining calories and protein for today, the foods already eaten today, and the user own food list (per 100g, with unit sizes).',
   'Give ONE short, practical recommendation of 1-2 options, at most 60 words, plain text without markdown or bullets.',
   'Prefer foods from USER_FOODS and state concrete amounts in grams or units with approximate kcal and protein. Aim to close the protein gap within the remaining calories, without complications.',
+  'Fiber is a secondary goal: if REMAINING_TODAY.fiber_g is still high (more than 10), prefer an option that also adds fiber (vegetables, fruit, legumes, whole grains) and mention the approximate fiber.',
   'If remaining calories are zero or negative, say so in one sentence and suggest only a low-calorie, high-protein option or to stop eating. If protein is already reached, do not push more protein.',
   'Do not add disclaimers, greetings or questions.',
 ].join('\n');
@@ -116,4 +119,53 @@ export async function aiSuggest(info, cfg) {
   const out = await callClaude(cfg, { system: SUGGEST_SYSTEM, maxTokens: 400, content });
   if (!out) throw new Error('תשובה ריקה');
   return out;
+}
+
+/* ---------- אימונים: ניתוח טקסט חופשי ליומן האימון ---------- */
+export const WORKOUT_SYSTEM = [
+  'You convert a Hebrew workout-diary message into JSON. Reply with ONLY one JSON object, no prose, no code fences:',
+  '{"actions":[{"exercise":<Hebrew exercise name>,"exId":<id from EXERCISES or null>,"cat":<one of ' + EX_CATS.map((c) => c.id).join('|') + '>,"sets":[{"reps":<number>,"kg":<number>}]}]}',
+  'Categories: chest=חזה, back=גב, shoulders=כתפיים, legs=רגליים, arms=ידיים, abs=בטן, cardio=אירובי.',
+  'HARD RULES:',
+  'W1. Every distinct exercise in the message appears in "actions" EXACTLY ONCE, with all of its sets inside its own "sets" array. Never repeat an exercise.',
+  'W2. Expand set counts into separate set objects: "3 סטים של 12 עם 60 קילו" becomes three objects {"reps":12,"kg":60}. If different sets have different values, list each set with its own values in order.',
+  'W3. Match each exercise to EXERCISES by meaning (spelling, prefixes and common synonyms differ) and return its id in "exId". If no exercise matches, set "exId" to null, give a clean Hebrew name, and choose the right "cat". Never invent an id.',
+  'W4. Body weight ("משקל גוף", "בלי משקל", pull-ups, push-ups with no load) means "kg":0. Extra load on a body-weight exercise ("מתח עם 10 קילו") is that load in kg.',
+  'W5. Cardio (cat "cardio"): put the duration in minutes in "reps" and use "kg":0, one set per bout. Convert hours to minutes.',
+  'W6. If the user says the same as last time ("כמו בפעם שעברה", "אותו דבר"), copy the sets from LAST_PERFORMANCE for that exercise. If a needed value is missing and cannot be inferred, use a typical value and never return null.',
+  'W7. Weights are in kg. Reps and sets are positive integers. Ignore anything that is not a workout. Output nothing except the JSON object.',
+].join('\n');
+
+const catOk = (c) => (EX_CATS.some((x) => x.id === c) ? c : null);
+
+export function normalizeWorkout(out, exercises) {
+  const a = out.indexOf('{');
+  const z = out.lastIndexOf('}');
+  if (a < 0 || z <= a) throw new Error('תשובה לא תקינה');
+  const raw = JSON.parse(out.slice(a, z + 1)).actions;
+  if (!Array.isArray(raw)) throw new Error('תשובה לא תקינה');
+  const actions = [];
+  for (const x of raw) {
+    if (!x || !Array.isArray(x.sets)) continue;
+    const ex = x.exId ? exercises.find((e) => e.id === x.exId) : null;
+    const name = ex ? ex.name : String(x.exercise || x.name || '').trim();
+    if (!name) continue;
+    const sets = x.sets.map((s) => ({ reps: numv(s && s.reps), kg: numv(s && s.kg) })).filter((s) => s.reps > 0);
+    if (sets.length) actions.push({ exId: ex ? ex.id : null, name, cat: ex ? ex.cat : catOk(x.cat), sets });
+  }
+  return { actions, unknown: [] };
+}
+
+export async function aiWorkout(text, ctx, cfg) {
+  const exercises = ctx.exercises.map((e) => ({ id: e.id, name: e.name, cat: e.cat }));
+  const last = ctx.exercises
+    .map((e) => ({ e, w: lastPerformance(ctx.user, e.id, ctx.today) }))
+    .filter((x) => x.w)
+    .map((x) => ({ exId: x.e.id, name: x.e.name, date: x.w.date, sets: x.w.sets.map((s) => ({ reps: s.reps, kg: s.kg })) }));
+  const out = await callClaude(cfg, {
+    system: WORKOUT_SYSTEM,
+    maxTokens: 1500,
+    content: 'EXERCISES:\n' + JSON.stringify(exercises) + '\n\nLAST_PERFORMANCE:\n' + JSON.stringify(last) + '\n\nMESSAGE:\n' + text,
+  });
+  return normalizeWorkout(out, ctx.exercises);
 }

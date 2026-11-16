@@ -38,7 +38,7 @@ export function applyActions(user, actions, o) {
       if (!(ng > 0) || Math.abs(ng - old) < 0.01) { dropped++; continue; }
       const k = ng / old;
       const serving = e.unit === 'serving' && e.qty > 0 ? old / e.qty : null;
-      const d = { ...e, g: ng, qty: serving ? r2(ng / serving) : ng, kcal: e.kcal * k, p: e.p * k, c: e.c * k, f: e.f * k, op: o.op };
+      const d = { ...e, g: ng, qty: serving ? r2(ng / serving) : ng, kcal: e.kcal * k, p: e.p * k, c: e.c * k, f: e.f * k, fb: (e.fb || 0) * k, op: o.op };
       ops.push({ kind: 'log', user, key: e.id, d });
       updated.push({ id: e.id, name: e.name, from: old, to: ng, kcal: d.kcal });
     } else {
@@ -47,7 +47,7 @@ export function applyActions(user, actions, o) {
       seenAdd.add(key);
       const d = {
         id: uid(), date: o.today, time: o.time, meal: o.meal, name: a.name, foodId: a.foodId || null, qty: a.qty, unit: a.unit,
-        g: a.g, kcal: a.kcal, p: a.p, c: a.c, f: a.f, est: !!a.est, op: o.op,
+        g: a.g, kcal: a.kcal, p: a.p, c: a.c, f: a.f, fb: a.fb || 0, est: !!a.est, op: o.op,
       };
       ops.push({ kind: 'log', user, key: d.id, d });
       added.push(d);
@@ -62,7 +62,7 @@ export function editEntry(user, e, p) {
   const r = e.qty > 0 ? p.qty / e.qty : 1;
   Store.put('log', user, e.id, {
     ...e, qty: p.qty, g: (e.g || e.qty) * r, meal: p.meal, time: p.time, date: p.date || e.date,
-    kcal: e.kcal * r, p: e.p * r, c: e.c * r, f: e.f * r,
+    kcal: e.kcal * r, p: e.p * r, c: e.c * r, f: e.f * r, fb: (e.fb || 0) * r,
   });
 }
 

@@ -154,7 +154,7 @@ export default function History({ user, today }) {
         <h2 className="font-bold">{last7.length > 1 ? 'ממוצע ' + last7.length + ' ימים אחרונים' : last7.length === 1 ? 'יום אחד תועד' : 'עוד אין היסטוריה'}</h2>
         {last7.length > 0 ? (
           <p className="text-sm text-mute tnum">
-            {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן
+            {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן · {fmtN(avg('fb'))} סיבים
           </p>
         ) : null}
         <Field label={'יום שלא תועד? ' + g('בחר', 'בחרי') + ' תאריך'}>
@@ -188,7 +188,7 @@ export default function History({ user, today }) {
                     {d.items.length} רשומות {open === d.date ? '▴' : '▾'}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-1.5">
                   {goals.map((gl) => {
                     const v = d.t[gl.key];
                     const bad = v > gl.goal && !gl.okOver;

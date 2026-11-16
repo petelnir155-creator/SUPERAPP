@@ -42,11 +42,11 @@ export const norm = (t) => String(t || '').toLowerCase().replace(/[׳'"״`-]/g, 
 export const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const catOf = (f) => (CATS.some((c) => c.id === f.cat) ? f.cat : f.p >= 10 ? 'protein' : 'carb');
 export const sumM = (rows) =>
-  rows.reduce((t, e) => ({ kcal: t.kcal + e.kcal, p: t.p + e.p, c: t.c + e.c, f: t.f + e.f }), { kcal: 0, p: 0, c: 0, f: 0 });
+  rows.reduce((t, e) => ({ kcal: t.kcal + e.kcal, p: t.p + e.p, c: t.c + e.c, f: t.f + e.f, fb: t.fb + (e.fb || 0) }), { kcal: 0, p: 0, c: 0, f: 0, fb: 0 });
 export const gramsOf = (food, qty, unit) => (unit === 'serving' ? qty * (food.serving || 100) : qty);
 export const macrosOf = (food, grams) => {
   const m = grams / 100;
-  return { kcal: food.kcal * m, p: food.p * m, c: food.c * m, f: food.f * m };
+  return { kcal: food.kcal * m, p: food.p * m, c: food.c * m, f: food.f * m, fb: (food.fb || 0) * m };
 };
 export const fmtDay = (d, opts) =>
   new Date(d + 'T12:00:00').toLocaleDateString('he-IL', opts || { weekday: 'long', day: 'numeric', month: 'long' });

@@ -5,9 +5,9 @@ import { Store, useStoreVersion } from '../lib/store.js';
 import { catOf, norm, num, r1, r2, uid } from '../lib/utils.js';
 import { Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
-const EMPTY = { id: null, name: '', cat: 'protein', mode: '100', kcal: '', p: '', c: '', f: '', uname: '', size: '' };
+const EMPTY = { id: null, name: '', cat: 'protein', mode: '100', kcal: '', p: '', c: '', f: '', fb: '', uname: '', size: '' };
 const line = (m, mult) =>
-  Math.round(m.kcal * mult) + ' קק״ל · ' + r1(m.p * mult) + ' חלבון · ' + r1(m.c * mult) + ' פחמימות · ' + r1(m.f * mult) + ' שומן';
+  Math.round(m.kcal * mult) + ' קק״ל · ' + r1(m.p * mult) + ' חלבון · ' + r1(m.c * mult) + ' פחמימות · ' + r1(m.f * mult) + ' שומן · ' + r1((m.fb || 0) * mult) + ' סיבים';
 
 /* ניהול מאגר המזון. ערכים מוזנים ל-100 גרם או ליחידה שלמה (בקבוק, כוס...) ונשמרים תמיד ל-100 גרם */
 export default function FoodsPanel({ user }) {
@@ -23,10 +23,10 @@ export default function FoodsPanel({ user }) {
   const isUnit = form.mode === 'unit';
   const size = num(form.size);
   const k = isUnit ? (size > 0 ? 100 / size : 0) : 1;
-  const p100 = { kcal: r2(num(form.kcal) * k), p: r2(num(form.p) * k), c: r2(num(form.c) * k), f: r2(num(form.f) * k) };
+  const p100 = { kcal: r2(num(form.kcal) * k), p: r2(num(form.p) * k), c: r2(num(form.c) * k), f: r2(num(form.f) * k), fb: r2(num(form.fb) * k) };
   const canSave = !!form.name.trim() && (!isUnit || size > 0);
   const unitName = form.uname.trim() || (isUnit ? 'יחידה' : 'מנה');
-  const hasAny = form.kcal !== '' || form.p !== '' || form.c !== '' || form.f !== '';
+  const hasAny = form.kcal !== '' || form.p !== '' || form.c !== '' || form.f !== '' || form.fb !== '';
   const one = /[הת]$/.test(unitName) || ['כוס', 'כף', 'כפית'].includes(unitName) ? 'אחת' : 'אחד';
 
   const submit = () => {
@@ -43,7 +43,7 @@ export default function FoodsPanel({ user }) {
 
   const startEdit = (f) => {
     setForm({
-      id: f.id, name: f.name, cat: catOf(f), mode: '100', kcal: String(r2(f.kcal)), p: String(r2(f.p)), c: String(r2(f.c)), f: String(r2(f.f)),
+      id: f.id, name: f.name, cat: catOf(f), mode: '100', kcal: String(r2(f.kcal)), p: String(r2(f.p)), c: String(r2(f.c)), f: String(r2(f.f)), fb: String(r2(f.fb || 0)),
       uname: f.uname || '', size: f.uname || f.serving !== 100 ? String(f.serving) : '',
     });
     setAdding(true);
@@ -128,6 +128,7 @@ export default function FoodsPanel({ user }) {
             {numField('חלבון (גר׳)', 'p')}
             {numField('פחמימות (גר׳)', 'c')}
             {numField('שומן (גר׳)', 'f')}
+            {numField('סיבים (גר׳)', 'fb')}
           </div>
           <div className="rounded-md p-3 space-y-2 border border-line">
             <div className="text-sm font-bold">{isUnit ? 'פרטי היחידה' : 'יחידה (לא חובה)'}</div>
@@ -192,11 +193,11 @@ export default function FoodsPanel({ user }) {
                             {f.uname ? (
                               <div>
                                 {f.uname} ({f.serving} גר׳): {r1((f.kcal * f.serving) / 100)} קק״ל · {r1((f.p * f.serving) / 100)} חלבון ·{' '}
-                                {r1((f.c * f.serving) / 100)} פחמ׳ · {r1((f.f * f.serving) / 100)} שומן
+                                {r1((f.c * f.serving) / 100)} פחמ׳ · {r1((f.f * f.serving) / 100)} שומן · {r1(((f.fb || 0) * f.serving) / 100)} סיבים
                               </div>
                             ) : null}
                             <div>
-                              ל-100 גר׳: {r1(f.kcal)} קק״ל · {r1(f.p)} חלבון · {r1(f.c)} פחמ׳ · {r1(f.f)} שומן
+                              ל-100 גר׳: {r1(f.kcal)} קק״ל · {r1(f.p)} חלבון · {r1(f.c)} פחמ׳ · {r1(f.f)} שומן · {r1(f.fb || 0)} סיבים
                             </div>
                           </div>
                         </div>

@@ -22,12 +22,13 @@ export default function FoodAdvisor({ user, totals, weekend, entries, aiCfg }) {
       const goals = goalsFor(user, weekend);
       const kcalGoal = goals[0].goal;
       const proteinGoal = goals[1].goal;
+      const fiberGoal = goals.find((x) => x.key === 'fb').goal;
       const info = {
-        remaining: { kcal: Math.round(kcalGoal - totals.kcal), protein_g: Math.round(proteinGoal - totals.p) },
-        goals: { kcal: kcalGoal, protein_g: proteinGoal },
-        eaten: entries.map((e) => ({ name: e.name, grams: r1(e.g), kcal: Math.round(e.kcal), protein: r1(e.p) })),
+        remaining: { kcal: Math.round(kcalGoal - totals.kcal), protein_g: Math.round(proteinGoal - totals.p), fiber_g: Math.round(fiberGoal - (totals.fb || 0)) },
+        goals: { kcal: kcalGoal, protein_g: proteinGoal, fiber_g: fiberGoal },
+        eaten: entries.map((e) => ({ name: e.name, grams: r1(e.g), kcal: Math.round(e.kcal), protein: r1(e.p), fiber: r1(e.fb || 0) })),
         foods: Store.list('food', user).map((f) => ({
-          name: f.name, per100g: { kcal: f.kcal, p: f.p }, unit: f.uname || null, unitGrams: f.serving,
+          name: f.name, per100g: { kcal: f.kcal, p: f.p, fiber: f.fb || 0 }, unit: f.uname || null, unitGrams: f.serving,
         })),
       };
       const text = await aiSuggest(info, aiCfg);
@@ -39,16 +40,9 @@ export default function FoodAdvisor({ user, totals, weekend, entries, aiCfg }) {
   };
 
   return (
-    <div>
-      <button
-        onClick={run}
-        disabled={st.busy}
-        className="w-full rounded-lg border border-line bg-surf py-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-      >
-        <span aria-hidden="true">💡</span> {st.busy ? 'חושב…' : 'מה לאכול עכשיו?'}
-      </button>
+    <div className="flex flex-col gap-2">
       {st.text || st.err ? (
-        <div role="status" className="mt-2 border border-line rounded-lg px-3 py-2.5 text-sm leading-relaxed flex gap-2 items-start bg-surf2">
+        <div role="status" className="border border-line rounded-lg px-3 py-2.5 text-sm leading-relaxed flex gap-2 items-start bg-surf2">
           <div className="flex-1" style={{ color: st.err ? OVER : 'var(--color-ink)' }}>
             {st.text || st.err}
           </div>
@@ -57,6 +51,13 @@ export default function FoodAdvisor({ user, totals, weekend, entries, aiCfg }) {
           </button>
         </div>
       ) : null}
+      <button
+        onClick={run}
+        disabled={st.busy}
+        className="w-full rounded-lg border border-line bg-surf py-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        <span aria-hidden="true">💡</span> {st.busy ? 'חושב…' : 'מה לאכול עכשיו?'}
+      </button>
     </div>
   );
 }
