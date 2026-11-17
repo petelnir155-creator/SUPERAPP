@@ -4,7 +4,7 @@ import { useG } from '../lib/gender.js';
 import { aiActions } from '../lib/ai.js';
 import { localActions } from '../lib/parser.js';
 import { applyActions } from '../lib/actions.js';
-import { Store } from '../lib/store.js';
+import { FOOD_USER, Store } from '../lib/store.js';
 import { autoMeal, fmtN, nowTime, r1, uid } from '../lib/utils.js';
 import { IconSend, btnPrimary } from './ui.jsx';
 
@@ -124,7 +124,7 @@ export default function ChatInput({ user, today, msgs, setMsgs, aiCfg }) {
         setBusy(false);
         return;
       }
-      const ctx = { foods: Store.list('food', user), entries: q ? [] : Store.list('log', user).filter((e) => e.date === today) };
+      const ctx = { foods: Store.list('food', FOOD_USER), entries: q ? [] : Store.list('log', user).filter((e) => e.date === today) };
       let res = null;
       let note = '';
       const body = q ? q[1].trim() : t;

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CATS } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
-import { Store, useStoreVersion } from '../lib/store.js';
+import { FOOD_USER, Store, useStoreVersion } from '../lib/store.js';
 import { catOf, norm, num, r1, r2, uid } from '../lib/utils.js';
 import { Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
@@ -13,7 +13,7 @@ const line = (m, mult) =>
 export default function FoodsPanel({ user }) {
   const g = useG();
   const ver = useStoreVersion();
-  const foods = useMemo(() => Store.list('food', user), [ver, user]);
+  const foods = useMemo(() => Store.list('food', FOOD_USER), [ver, user]);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState({ protein: true });
   const [adding, setAdding] = useState(false);
@@ -33,7 +33,7 @@ export default function FoodsPanel({ user }) {
     if (!canSave) return;
     const hasUnit = size > 0 && (isUnit || !!form.uname.trim());
     const id = form.id || uid();
-    Store.put('food', user, id, {
+    Store.put('food', FOOD_USER, id, {
       id, cat: form.cat, name: form.name.trim(), ...p100, serving: size > 0 ? size : 100, ...(hasUnit ? { uname: unitName } : {}),
     });
     setOpen((o) => ({ ...o, [form.cat]: true }));
@@ -205,7 +205,7 @@ export default function FoodsPanel({ user }) {
                           ✎
                         </button>
                         <button
-                          onClick={() => Store.remove('food', user, f.id)}
+                          onClick={() => Store.remove('food', FOOD_USER, f.id)}
                           aria-label={'מחק ' + f.name}
                           className="w-9 h-9 rounded-md text-xl leading-none text-mute border border-line shrink-0"
                         >

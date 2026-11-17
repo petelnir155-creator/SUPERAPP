@@ -40,6 +40,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flush();
 });
 
+/* מאגר המאכלים משותף לכל המשתמשים: נשמר תחת משתמש וירטואלי אחד */
+export const FOOD_USER = 'all';
+
 export const Store = {
   subscribe(f) {
     subs.add(f);
@@ -85,6 +88,32 @@ export const Store = {
     else if (cur.ts <= 1 && !cur.del) docs[id] = { ...cur, d };
   },
 
+  /*
+    איחוד מאגרים אישיים ישנים (food:nir:*, food:od:*) למאגר משותף (food:all:*).
+    המסמך החדש ביותר לכל מפתח מנצח (כולל מחיקה); המסמכים האישיים הישנים מוסרים מקומית.
+    זריעות (ts<=1) פשוט נזרקות. בטוח להריץ שוב ושוב.
+  */
+  migrateFoods() {
+    let moved = false;
+    for (const id of Object.keys(docs)) {
+      const x = docs[id];
+      if (x.kind !== 'food' || x.user === FOOD_USER) continue;
+      const key = id.slice(('food:' + x.user + ':').length);
+      if (x.ts > 1) {
+        const nid = idOf('food', FOOD_USER, key);
+        const cur = docs[nid];
+        if (!cur || x.ts > cur.ts) {
+          docs[nid] = { id: nid, kind: 'food', user: FOOD_USER, ts: x.ts, del: x.del, d: x.d };
+          dirty[nid] = true;
+          moved = true;
+        }
+      }
+      delete docs[id];
+      delete dirty[id];
+    }
+    return moved;
+  },
+
   /* ---- סנכרון ---- */
   dirtyDocs: () => Object.keys(dirty).filter((id) => docs[id]).map((id) => docs[id]),
   hasDirty: () => Object.keys(dirty).length > 0,
@@ -108,6 +137,7 @@ export const Store = {
         changed = true;
       } else if (r.ts === local.ts) delete dirty[r.id];
     }
+    changed = Store.migrateFoods() || changed;
     if (changed) emit();
     else flush();
     return changed;
@@ -137,12 +167,10 @@ export const useStoreVersion = () => useSyncExternalStore(Store.subscribe, Store
 
 /* מאגר ברירת המחדל נזרע פעם אחת לכל משתמש */
 export function seedFoods() {
-  const seeded = LS.get('nt2:seeded', {});
-  for (const user of Object.keys(PROFILES)) {
-    if (seeded[user]) continue;
-    DEMO_FOODS.forEach((f) => Store.seed('food', user, f.id, f));
-    seeded[user] = true;
+  Store.migrateFoods();
+  if (!LS.get('nt2:seeded-all', false)) {
+    DEMO_FOODS.forEach((f) => Store.seed('food', FOOD_USER, f.id, f));
+    LS.set('nt2:seeded-all', true);
   }
-  LS.set('nt2:seeded', seeded);
   Store.flush();
 }

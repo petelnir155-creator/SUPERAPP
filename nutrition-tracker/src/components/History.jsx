@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CATS, CUP_ML, OVER, PROFILES, goalsFor } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
 import { addEntryManual, editEntry, patchDay } from '../lib/actions.js';
-import { Store, useStoreVersion } from '../lib/store.js';
+import { FOOD_USER, Store, useStoreVersion } from '../lib/store.js';
 import { catOf, fmtDay, fmtN, num, sumM, todayKey } from '../lib/utils.js';
 import { AccordionItem, EditSheet, Field, MealChips, MealList, Switch, btnPrimary, inputCls } from './ui.jsx';
 import Metrics from './Metrics.jsx';
@@ -117,7 +117,7 @@ function NutritionHistory({ user, today }) {
   const [editId, setEditId] = useState(null);
   const [extra, setExtra] = useState('');
   const log = useMemo(() => Store.list('log', user), [ver, user]);
-  const foods = useMemo(() => Store.list('food', user), [ver, user]);
+  const foods = useMemo(() => Store.list('food', FOOD_USER), [ver, user]);
   const dayDocs = useMemo(() => Object.fromEntries(Store.list('day', user).map((d) => [d.date, d])), [ver, user]);
 
   const days = useMemo(() => {
