@@ -5,6 +5,7 @@
 -- 3. The mirror function is replaced so the new fields are copied (image URLs already stored in exercise_db are kept),
 --    the function nt_exercise_media lets the app read the image URLs, then existing rows are re-copied.
 
+alter table public.exercise_db add column if not exists tag text;
 alter table public.exercise_db add column if not exists muscle_img_url text;
 alter table public.exercise_db add column if not exists movement_img_url text;
 
@@ -39,15 +40,15 @@ begin
     if r.del then
       delete from public.exercise_db where sync_key = r.sync_key and id = r.id;
     else
-      insert into public.exercise_db (sync_key, id, usr, name, name_en, muscle_group, workout_type, tips, muscle_img_url, movement_img_url, auto_created, updated_ts)
+      insert into public.exercise_db (sync_key, id, usr, name, name_en, muscle_group, workout_type, tips, tag, muscle_img_url, movement_img_url, auto_created, updated_ts)
       values (r.sync_key, r.id, r.usr, coalesce(r.d->>'name', ''), r.d->>'en', r.d->>'cat',
               coalesce(r.d->>'type', case r.d->>'cat' when 'cardio' then 'machine' when 'pilates' then 'pilates' else 'strength' end),
               case when jsonb_typeof(r.d->'tips') = 'array' then r.d->'tips' else '[]'::jsonb end,
-              nullif(r.d->>'muscle_img_url', ''), nullif(r.d->>'movement_img_url', ''),
+              nullif(r.d->>'tag', ''), nullif(r.d->>'muscle_img_url', ''), nullif(r.d->>'movement_img_url', ''),
               coalesce((r.d->>'auto')::boolean, false), r.ts)
       on conflict (sync_key, id) do update
         set usr = excluded.usr, name = excluded.name, name_en = excluded.name_en, muscle_group = excluded.muscle_group,
-            workout_type = excluded.workout_type, tips = excluded.tips,
+            workout_type = excluded.workout_type, tips = excluded.tips, tag = excluded.tag,
             -- image URLs may be set directly in exercise_db; an exercise edit in the app must not wipe them
             muscle_img_url = coalesce(excluded.muscle_img_url, public.exercise_db.muscle_img_url),
             movement_img_url = coalesce(excluded.movement_img_url, public.exercise_db.movement_img_url), auto_created = excluded.auto_created, updated_ts = excluded.updated_ts;

@@ -77,6 +77,13 @@ export const Store = {
     const id = idOf(kind, user, key);
     if (!docs[id]) docs[id] = { id, kind, user, ts: 1, del: false, d };
   },
+  /* עדכון נתוני זריעה: מוסיף אם חסר, ומחליף רק מסמך שעוד לא נערך (ts<=1). עריכה של המשתמש לא נדרסת */
+  reseed(kind, user, key, d) {
+    const id = idOf(kind, user, key);
+    const cur = docs[id];
+    if (!cur) docs[id] = { id, kind, user, ts: 1, del: false, d };
+    else if (cur.ts <= 1 && !cur.del) docs[id] = { ...cur, d };
+  },
 
   /* ---- סנכרון ---- */
   dirtyDocs: () => Object.keys(dirty).filter((id) => docs[id]).map((id) => docs[id]),

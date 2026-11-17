@@ -3,13 +3,15 @@ import { useG } from '../lib/gender.js';
 import { Store, useStoreVersion } from '../lib/store.js';
 import { Cloud } from '../lib/supabaseClient.js';
 import { useExerciseMedia } from '../lib/exerciseMedia.js';
+import { HOME_LABEL, HOME_TAG } from '../lib/exercises.js';
 import { EX_CATS, addExercise, exercisesOf, lastPerformance, prevText } from '../lib/workouts.js';
 import { AccordionItem, Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
 /* מאגר התרגילים כאקורדיון היררכי:
    רמה 1: קבוצת שריר. רמה 2: התרגילים שלה. רמה 3: כרטיסייה מורחבת עם דגשים, תמונות ופעולות. */
 const PANEL_CATS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs']; // בלי אירובי ופילאטיס. בטן מוצגת רק אם יש בה תרגילים
-const EMPTY = { id: null, name: '', cat: 'chest', en: '', tips: '', muscle_img_url: '', movement_img_url: '' };
+const EMPTY = { id: null, name: '', cat: 'chest', en: '', tips: '', tag: '', muscle_img_url: '', movement_img_url: '' };
+const HOME_ID = 'home'; // מזהה פנימי של קבוצת האקורדיון (לא קבוצת שריר)
 
 /* תמונה לפי כתובת. בלי כתובת או כשהטעינה נכשלת: ריבוע אפור עם אייקון וטקסט */
 function ImageSlot({ url, label, icon }) {
@@ -50,7 +52,7 @@ function ExerciseForm({ user, init, onDone }) {
   const save = () => {
     if (!canSave) return;
     addExercise(user, { ...form, tips: form.tips.split('\n') });
-    onDone(form.cat);
+    onDone(form.tag === HOME_TAG ? HOME_ID : form.cat);
   };
   return (
     <div className="space-y-3">
@@ -84,6 +86,14 @@ function ExerciseForm({ user, init, onDone }) {
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        aria-pressed={form.tag === HOME_TAG}
+        onClick={() => setForm({ ...form, tag: form.tag === HOME_TAG ? '' : HOME_TAG })}
+        className={'w-full rounded-md py-2 text-sm font-bold border border-line ' + (form.tag === HOME_TAG ? chipOn : 'text-ink')}
+      >
+        {HOME_LABEL}
+      </button>
       <div className="flex gap-2">
         <button onClick={() => onDone(null)} className="flex-1 rounded-md py-2.5 font-bold border border-line">
           ביטול
@@ -111,6 +121,7 @@ function ExerciseCard({ user, today, e, onAdd, onEdit }) {
           {e.en}
         </div>
       ) : null}
+      {e.tag === HOME_TAG ? <div className="text-xs text-mute">קבוצת שריר: {(EX_CATS.find((c) => c.id === e.cat) || {}).label || e.cat}</div> : null}
       <div className="grid grid-cols-2 gap-2.5">
         <ImageSlot key={muscleUrl} url={muscleUrl} label="אנטומיה (שריר)" icon="muscle" />
         <ImageSlot key={moveUrl} url={moveUrl} label="תנועה" icon="move" />
@@ -168,12 +179,15 @@ export default function ExerciseBank({ user, today, onAdd }) {
   const query = q.trim().toLowerCase();
   const match = (e) => !query || e.name.toLowerCase().includes(query) || (e.en || '').toLowerCase().includes(query);
 
-  const cats = EX_CATS.filter((c) => PANEL_CATS.includes(c.id) || (c.id !== 'cardio' && c.id !== 'pilates' && list.some((e) => e.cat === c.id)));
+  const homeList = list.filter((e) => e.tag === HOME_TAG);
+  const rest = list.filter((e) => e.tag !== HOME_TAG);
+  const cats = EX_CATS.filter((c) => PANEL_CATS.includes(c.id) || (c.id !== 'cardio' && c.id !== 'pilates' && rest.some((e) => e.cat === c.id)));
+  const groups = [...cats.map((c) => ({ id: c.id, label: c.label, items: rest.filter((e) => e.cat === c.id) })), { id: HOME_ID, label: HOME_LABEL, items: homeList }];
   const finish = (cat) => {
     if (cat) setOpenCat(cat);
     setForm(null);
   };
-  const edit = (e) => setForm({ id: e.id, name: e.name, cat: e.cat, en: e.en || '', tips: (e.tips || []).join('\n'), muscle_img_url: e.muscle_img_url || '', movement_img_url: e.movement_img_url || '' });
+  const edit = (e) => setForm({ id: e.id, name: e.name, cat: e.cat, en: e.en || '', tips: (e.tips || []).join('\n'), tag: e.tag || '', muscle_img_url: e.muscle_img_url || '', movement_img_url: e.movement_img_url || '' });
 
   return (
     <div className="space-y-3">
@@ -182,7 +196,7 @@ export default function ExerciseBank({ user, today, onAdd }) {
       {form && !form.id ? (
         <div className="border border-line bg-surf rounded-lg p-3 space-y-3">
           <div className="text-sm font-bold">תרגיל חדש</div>
-          <ExerciseForm user={user} init={{ ...form, cat: openCat && PANEL_CATS.includes(openCat) ? openCat : form.cat }} onDone={finish} />
+          <ExerciseForm user={user} init={{ ...form, cat: openCat && PANEL_CATS.includes(openCat) ? openCat : form.cat, tag: openCat === HOME_ID ? HOME_TAG : form.tag }} onDone={finish} />
         </div>
       ) : (
         <button onClick={() => setForm(EMPTY)} className="w-full rounded-lg border border-line bg-surf py-2.5 font-bold text-sm">
@@ -191,8 +205,8 @@ export default function ExerciseBank({ user, today, onAdd }) {
       )}
 
       <div className="space-y-2">
-        {cats.map((c) => {
-          const items = list.filter((e) => e.cat === c.id && match(e));
+        {groups.map((c) => {
+          const items = c.items.filter(match);
           if (query && !items.length) return null;
           return (
             <AccordionItem key={c.id} title={c.label} meta={String(items.length)} open={!!query || openCat === c.id} onToggle={() => setOpenCat(openCat === c.id ? null : c.id)}>

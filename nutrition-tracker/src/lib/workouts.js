@@ -1,4 +1,4 @@
-import { DEMO_EXERCISES, EX_CATS } from './exercises.js';
+import { DEMO_EXERCISES, EX_CATS, HOME_EXERCISES } from './exercises.js';
 import { PROFILES } from './config.js';
 import { stem, words } from './parser.js';
 import { Store } from './store.js';
@@ -80,6 +80,24 @@ export function seedExercises() {
     done3[user] = true;
   }
   LS.set('nt2:seeded-ex3', done3);
+
+  /* גרסה 5: דגשים מעודכנים לתרגילי המכון (p01-p05, p07-p15) ותרגיל חדש, משיכת פולי עליון אחיזה צרה (p15) */
+  const done5 = LS.get('nt2:seeded-ex5', {});
+  for (const user of Object.keys(PROFILES)) {
+    if (done5[user]) continue;
+    DEMO_EXERCISES.filter((x) => /^p\d+$/.test(x.id) && x.id !== 'p06').forEach((x) => Store.reseed('ex', user, x.id, x));
+    done5[user] = true;
+  }
+  LS.set('nt2:seeded-ex5', done5);
+
+  /* גרסה 4: קבוצת "אימון ביתי (6 ק״ג)". נזרעת רק אם התרגיל עוד לא קיים */
+  const done4 = LS.get('nt2:seeded-ex4', {});
+  for (const user of Object.keys(PROFILES)) {
+    if (done4[user]) continue;
+    HOME_EXERCISES.forEach((x) => Store.seed('ex', user, x.id, x));
+    done4[user] = true;
+  }
+  LS.set('nt2:seeded-ex4', done4);
   Store.flush();
 }
 
@@ -273,7 +291,7 @@ const okUrl = (u) => {
   return /^https?:\/\/\S+$/i.test(x) ? x : '';
 };
 
-export function addExercise(user, { id, name, cat, type, en, tips, muscle_img_url, movement_img_url }) {
+export function addExercise(user, { id, name, cat, type, en, tips, tag, muscle_img_url, movement_img_url }) {
   const key = id || uid();
   const t = cat === 'cardio' ? type || 'machine' : cat === 'pilates' ? 'pilates' : null;
   const tipList = (tips || []).map((x) => x.trim()).filter(Boolean);
@@ -282,6 +300,7 @@ export function addExercise(user, { id, name, cat, type, en, tips, muscle_img_ur
   const vUrl = okUrl(movement_img_url);
   Store.put('ex', user, key, {
     id: key, name: name.trim(), cat, ...(t ? { type: t } : {}), ...(enName ? { en: enName } : {}), ...(tipList.length ? { tips: tipList } : {}),
+    ...(tag ? { tag } : {}),
     ...(mUrl ? { muscle_img_url: mUrl } : {}), ...(vUrl ? { movement_img_url: vUrl } : {}),
   });
 }
