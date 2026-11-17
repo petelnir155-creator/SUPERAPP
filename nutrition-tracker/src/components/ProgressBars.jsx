@@ -13,20 +13,62 @@ function BarHead({ label, children }) {
   );
 }
 
-function NutrientBar({ g, value }) {
+function NutrientBar({ g, value, entries }) {
+  const [open, setOpen] = useState(false);
   const over = value > g.goal;
   const bad = over && !g.okOver; // חלבון מעל היעד נשאר ירוק, השאר אדום
   const pct = Math.round((value / g.goal) * 100);
   const color = bad ? OVER : g.color;
   const strong = { color: bad ? OVER : 'var(--color-ink)' };
+  const rows = (entries || [])
+    .map((e) => ({ e, v: num(e[g.key]) }))
+    .filter((r) => r.v > 0)
+    .sort((a, b) => b.v - a.v);
+  const sum = rows.reduce((s, r) => s + r.v, 0);
+  const id = 'bd-' + g.key;
   return (
     <div>
-      <BarHead label={g.label}>
-        <b className="text-[15px]" style={strong}>{fmtN(value)}</b>
-        {' / ' + fmtN(g.goal) + ' ' + g.unit + ' · '}
-        <span style={strong}>{pct}%</span>
-      </BarHead>
-      <Track label={g.label} now={value} max={g.goal} segs={[{ from: 0, w: Math.min(100, pct), color }]} />
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={id}
+        aria-label={'פירוט ' + g.label}
+        className="block w-full text-start"
+      >
+        <BarHead label={g.label}>
+          <b className="text-[15px]" style={strong}>{fmtN(value)}</b>
+          {' / ' + fmtN(g.goal) + ' ' + g.unit + ' · '}
+          <span style={strong}>{pct}%</span>
+          <span className="ms-1.5 text-[10px]" aria-hidden="true">{open ? '▲' : '▼'}</span>
+        </BarHead>
+        <Track label={g.label} now={value} max={g.goal} segs={[{ from: 0, w: Math.min(100, pct), color }]} />
+      </button>
+      {open && (
+        <div id={id} className="mt-2 rounded-md border border-line px-3 py-2 text-[12px]">
+          {rows.length === 0 ? (
+            <div className="text-mute">עוד לא נרשם כלום להיום</div>
+          ) : (
+            <>
+              <ul className="divide-y divide-line">
+                {rows.map(({ e, v }) => (
+                  <li key={e.id} className="flex items-baseline justify-between gap-3 py-1">
+                    <span className="min-w-0 truncate">
+                      {e.name}
+                      {e.g ? <span className="text-mute tnum"> · {fmtN(e.g)} גר׳</span> : null}
+                    </span>
+                    <b className="tnum shrink-0">{(Math.round(v * 10) / 10).toLocaleString('he-IL')} {g.unit}</b>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-between border-t border-line mt-1 pt-1.5 font-bold tnum">
+                <span>סה״כ</span>
+                <span>{(Math.round(sum * 10) / 10).toLocaleString('he-IL')} {g.unit}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -167,7 +209,7 @@ function WaterBar({ cups, onSet }) {
   );
 }
 
-export default function ProgressBars({ user, today, totals, day }) {
+export default function ProgressBars({ user, today, totals, day, entries }) {
   const weekend = !!day.wk;
   const goals = goalsFor(user, weekend);
   return (
@@ -182,7 +224,7 @@ export default function ProgressBars({ user, today, totals, day }) {
         </label>
       </div>
       {goals.map((g) => (
-        <NutrientBar key={g.key} g={g} value={totals[g.key]} />
+        <NutrientBar key={g.key} g={g} value={totals[g.key]} entries={entries} />
       ))}
       <div className="border-t border-line" />
       <StepsBar steps={day.steps || 0} onSet={(n) => patchDay(user, today, { steps: n })} />
