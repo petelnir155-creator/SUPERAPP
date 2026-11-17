@@ -8,7 +8,7 @@ function AiPanel({ cfg, setCfg }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-mute leading-relaxed">
-        ללא מפתח, הצ׳אט מנתח את הטקסט בעצמו לפי המאגר וטבלת הערכות. עם מפתח API של Anthropic, מודל מנתח כל משפט, מעריך ערכים, מתקן רשומות שכבר נרשמו היום, ומפעיל את ״מה לאכול עכשיו?״.
+        ללא מפתח, הצ׳אט מנתח את הטקסט בעצמו לפי המאגר וטבלת הערכות. עם מפתח API של Anthropic, מודל מנתח כל משפט, מעריך ערכים, מתקן רשומות שכבר נרשמו היום.
       </p>
       <Field label="מפתח API של Anthropic">
         <input className={inputCls} type="password" autoComplete="off" dir="ltr" placeholder="sk-ant-…" value={cfg.key || ''} onChange={(e) => setCfg({ ...cfg, key: e.target.value })} />

@@ -1,8 +1,8 @@
 import { DEFAULT_MODEL } from './config.js';
-import { macrosOf, nowTime, r1 } from './utils.js';
+import { macrosOf, r1 } from './utils.js';
 import { STRENGTH_CATS, lastPerformance, typeOf } from './workouts.js';
 
-async function callClaude(cfg, { system, content, maxTokens }) {
+async function callClaudeRaw(cfg, { system, content, maxTokens }) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -29,7 +29,16 @@ async function callClaude(cfg, { system, content, maxTokens }) {
     throw new Error('HTTP ' + res.status + (msg ? ': ' + msg : ''));
   }
   const data = await res.json();
-  return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  const blocks = data.content || [];
+  return {
+    text: blocks.filter((b) => b.type === 'text').map((b) => b.text).join('').trim(),
+    stop: data.stop_reason || '',
+    types: blocks.map((b) => b.type).join(','),
+  };
+}
+
+async function callClaude(cfg, args) {
+  return (await callClaudeRaw(cfg, args)).text;
 }
 
 /* ---------- הזנה: הוספה ועדכון הקשרי ---------- */
@@ -96,29 +105,6 @@ export async function aiActions(text, ctx, cfg) {
     content: 'USER_FOODS:\n' + JSON.stringify(foods) + '\n\nTODAY_LOG:\n' + JSON.stringify(today) + '\n\nMESSAGE:\n' + text,
   });
   return normalizeAi(out, ctx.foods);
-}
-
-/* ---------- המלצה: "מה לאכול עכשיו?" ---------- */
-export const SUGGEST_SYSTEM = [
-  'You are a concise nutrition assistant inside a personal food tracker. Reply in Hebrew only.',
-  'You get the remaining calories and protein for today, the foods already eaten today, and the user own food list (per 100g, with unit sizes).',
-  'Give ONE short, practical recommendation of 1-2 options, at most 60 words, plain text without markdown or bullets.',
-  'Prefer foods from USER_FOODS and state concrete amounts in grams or units with approximate kcal and protein. Aim to close the protein gap within the remaining calories, without complications.',
-  'Fiber is a secondary goal: if REMAINING_TODAY.fiber_g is still high (more than 10), prefer an option that also adds fiber (vegetables, fruit, legumes, whole grains) and mention the approximate fiber.',
-  'If remaining calories are zero or negative, say so in one sentence and suggest only a low-calorie, high-protein option or to stop eating. If protein is already reached, do not push more protein.',
-  'Do not add disclaimers, greetings or questions.',
-].join('\n');
-
-export async function aiSuggest(info, cfg) {
-  const content =
-    'REMAINING_TODAY: ' + JSON.stringify(info.remaining) +
-    '\nGOALS: ' + JSON.stringify(info.goals) +
-    '\nEATEN_TODAY: ' + JSON.stringify(info.eaten) +
-    '\nUSER_FOODS: ' + JSON.stringify(info.foods) +
-    '\nTIME_NOW: ' + nowTime();
-  const out = await callClaude(cfg, { system: SUGGEST_SYSTEM, maxTokens: 400, content });
-  if (!out) throw new Error('תשובה ריקה');
-  return out;
 }
 
 /* ---------- אימונים ומשמרות הדרכה: ניתוח טקסט חופשי ---------- */

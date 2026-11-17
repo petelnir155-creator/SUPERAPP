@@ -7,7 +7,6 @@ import { applyTheme, getTheme, saveTheme } from './lib/theme.js';
 import { LS, fmtDay, sumM, todayKey } from './lib/utils.js';
 import ChatInput from './components/ChatInput.jsx';
 import { stateColor, stateText } from './components/CloudPanel.jsx';
-import FoodAdvisor from './components/FoodAdvisor.jsx';
 import History from './components/History.jsx';
 import ProgressBars from './components/ProgressBars.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
@@ -50,7 +49,6 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
       {/* אזור ה-AI צמוד לתחתית, האלמנט האחרון לפני הניווט */}
       <div className="mt-auto pt-2 flex flex-col gap-2">
         <ChatInput user={user} today={today} msgs={msgs} setMsgs={setMsgs} aiCfg={aiCfg} />
-        <FoodAdvisor user={user} totals={totals} weekend={!!day.wk} entries={entries} aiCfg={aiCfg} />
       </div>
     </section>
   );

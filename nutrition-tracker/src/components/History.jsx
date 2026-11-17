@@ -137,7 +137,8 @@ function NutritionHistory({ user, today }) {
   }, [log, dayDocs, extra, today]);
 
   const editing = log.find((e) => e.id === editId);
-  const last7 = days.filter((d) => d.items.length).slice(0, 7);
+  // הממוצע לא כולל את היום הנוכחי: היום עוד לא נגמר ולכן מעוות את התמונה
+  const last7 = days.filter((d) => d.items.length && d.date !== today).slice(0, 7);
   const avg = (k) => (last7.length ? Math.round(last7.reduce((s, d) => s + d.t[k], 0) / last7.length) : 0);
 
   return (
@@ -154,7 +155,7 @@ function NutritionHistory({ user, today }) {
         />
       )}
       <div className="bg-surf border border-line rounded-lg p-4 space-y-2">
-        <h2 className="font-bold">{last7.length > 1 ? 'ממוצע ' + last7.length + ' ימים אחרונים' : last7.length === 1 ? 'יום אחד תועד' : 'עוד אין היסטוריה'}</h2>
+        <h2 className="font-bold">{last7.length > 1 ? 'ממוצע ' + last7.length + ' ימים אחרונים (לא כולל היום)' : last7.length === 1 ? 'יום קודם אחד תועד (לא כולל היום)' : 'עוד אין ימים קודמים לממוצע'}</h2>
         {last7.length > 0 ? (
           <p className="text-sm text-mute tnum">
             {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן · {fmtN(avg('fb'))} סיבים

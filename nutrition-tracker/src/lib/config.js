@@ -25,7 +25,7 @@ export const METRICS = [
 
 export const PROFILES = {
   nir: { name: 'ניר', goals: { kcal: 1800, p: 150, c: 165, f: 60, fb: 25 }, weekendKcal: 2000 },
-  od: { name: 'אוד', fem: true, instructor: true, goals: { kcal: 1400, p: 100, c: 120, f: 55, fb: 20 }, weekendKcal: 1600 },
+  od: { name: 'אוד', fem: true, instructor: true, goals: { kcal: 1400, p: 120, c: 111, f: 53, fb: 20 }, weekendKcal: 1600 },
 };
 
 export const goalsFor = (user, weekend) =>
