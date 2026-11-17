@@ -8,7 +8,42 @@ import { Store } from '../lib/store.js';
 import { autoMeal, fmtN, nowTime, r1, uid } from '../lib/utils.js';
 import { IconSend, btnPrimary } from './ui.jsx';
 
+/* "? מאכל": הצגת ערכים בלבד, בלי לרשום ביומן */
+const QUERY_RE = /^\s*[?？]\s*([\s\S]*)$/;
+
+function PreviewMessage({ m }) {
+  const sum = (k) => m.items.reduce((a, e) => a + (e[k] || 0), 0);
+  return (
+    <div className="self-end max-w-[94%] border border-line rounded-lg px-3 py-2 text-sm space-y-1.5 bg-surf2">
+      <div className="text-xs font-bold text-mute">בדיקה בלבד · לא נרשם ביומן</div>
+      {m.items.map((e, i) => (
+        <div key={i} className="space-y-0.5">
+          <div className="flex justify-between gap-3 tnum">
+            <span className="min-w-0">
+              {e.name} <span className="text-mute">· {r1(e.g)} גר׳</span>
+              {e.est ? <span className="text-xs text-warn"> · הערכה</span> : null}
+            </span>
+            <span className="shrink-0 font-bold">{fmtN(e.kcal)} קק״ל</span>
+          </div>
+          <div className="text-xs text-mute tnum">
+            {r1(e.p)} חלבון · {r1(e.c)} פחמימות · {r1(e.f)} שומן · {r1(e.fb || 0)} סיבים
+          </div>
+        </div>
+      ))}
+      {m.items.length > 1 ? (
+        <div className="border-t border-line pt-1 text-xs text-mute tnum">
+          סה״כ: {fmtN(sum('kcal'))} קק״ל · {r1(sum('p'))} חלבון · {r1(sum('c'))} פחמימות · {r1(sum('f'))} שומן · {r1(sum('fb'))} סיבים
+        </div>
+      ) : null}
+      {m.unknown && m.unknown.length ? <div className="text-xs" style={{ color: OVER }}>לא זוהה: {m.unknown.join(', ')}</div> : null}
+      {m.note ? <div className="text-xs text-mute">{m.note}</div> : null}
+      {m.items.length ? <div className="text-xs text-mute">כדי להוסיף, כתוב שוב בלי סימן השאלה.</div> : null}
+    </div>
+  );
+}
+
 function BotMessage({ m, last, onUndo }) {
+  if (m.items) return <PreviewMessage m={m} />;
   const out = m.out;
   const changed = out && (out.added.length || out.updated.length);
   return (
@@ -79,20 +114,41 @@ export default function ChatInput({ user, today, msgs, setMsgs, aiCfg }) {
     setBusy(true);
     edit('');
     const op = uid();
+    const q = QUERY_RE.exec(t); // "? מאכל" = בדיקה בלבד
     setMsgs((l) => [...l, { role: 'user', text: t }]);
     let bot;
     try {
-      const ctx = { foods: Store.list('food', user), entries: Store.list('log', user).filter((e) => e.date === today) };
+      if (q && !q[1].trim()) {
+        setMsgs((l) => [...l, { role: 'bot', items: [], unknown: [], note: 'כתוב מאכל אחרי סימן השאלה, למשל: ? פיתה 80 גרם' }]);
+        lock.current = false;
+        setBusy(false);
+        return;
+      }
+      const ctx = { foods: Store.list('food', user), entries: q ? [] : Store.list('log', user).filter((e) => e.date === today) };
       let res = null;
       let note = '';
+      const body = q ? q[1].trim() : t;
       if (aiOn) {
         try {
-          res = await aiActions(t, ctx, aiCfg);
+          res = await aiActions(body, ctx, aiCfg);
         } catch (e) {
           note = 'ניתוח ה-AI נכשל (' + String((e && e.message) || e).slice(0, 120) + '). בוצע ניתוח מקומי.';
         }
       }
-      if (!res) res = localActions(t, ctx);
+      if (!res) res = localActions(body, ctx);
+      if (q) {
+        const seen = new Set();
+        const items = res.actions.filter((a) => a.action !== 'update').filter((a) => {
+          const k = a.foodId ? 'f:' + a.foodId : 'n:' + a.name;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        setMsgs((l) => [...l, { role: 'bot', items, unknown: res.unknown, note: items.length ? note : note || 'לא זוהה מאכל.' }]);
+        lock.current = false;
+        setBusy(false);
+        return;
+      }
       const out = applyActions(user, res.actions, { op, today, meal: autoMeal(), time: nowTime() });
       bot = { role: 'bot', out, unknown: res.unknown, note };
     } catch (e) {
@@ -144,7 +200,7 @@ export default function ChatInput({ user, today, msgs, setMsgs, aiCfg }) {
               send();
             }
           }}
-          placeholder="מה אכלת?"
+          placeholder="מה אכלת? (? לפני מאכל = רק בדיקה)"
           className="flex-1 rounded-md px-3 py-2.5 text-base text-ink"
           style={{ resize: 'none' }}
         />
