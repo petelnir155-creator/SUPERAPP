@@ -45,7 +45,7 @@ function Today({ user, today, msgs, setMsgs, aiCfg }) {
   const day = useMemo(() => Store.get('day', user, today) || { date: today, water: 0, steps: 0, wk: false }, [ver, user, today]);
   return (
     <section className="flex-1 flex flex-col gap-3 px-4">
-      <ProgressBars user={user} today={today} totals={totals} day={day} />
+      <ProgressBars user={user} today={today} totals={totals} day={day} entries={entries} />
       {/* אזור ה-AI צמוד לתחתית, האלמנט האחרון לפני הניווט */}
       <div className="mt-auto pt-2 flex flex-col gap-2">
         <ChatInput user={user} today={today} msgs={msgs} setMsgs={setMsgs} aiCfg={aiCfg} />
