@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CUP_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
+import { CUP_GOAL, FLOOR_BONUS, FLOOR_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
 import { patchDay } from '../lib/actions.js';
 import { fmtN, num } from '../lib/utils.js';
 import { Switch, Track } from './ui.jsx';
@@ -181,9 +181,80 @@ function StepsBar({ steps, onSet }) {
   );
 }
 
+/* טיפוס קומות (ניר בלבד): יעד בסיס 10, בונוס 15. הכפתורים והקלדה נשמרים מיד */
+function FloorsBar({ floors, onSet }) {
+  const [txt, setTxt] = useState(null);
+  const commitTxt = () => {
+    if (txt !== null) {
+      onSet(Math.max(0, Math.round(num(txt))));
+      setTxt(null);
+    }
+  };
+  const base = (Math.min(floors, FLOOR_GOAL) / FLOOR_BONUS) * 100;
+  const bonus = (Math.max(0, Math.min(floors, FLOOR_BONUS) - FLOOR_GOAL) / FLOOR_BONUS) * 100;
+  const pct = Math.round((floors / FLOOR_GOAL) * 100);
+  const reached = floors >= FLOOR_GOAL;
+  const full = floors >= FLOOR_BONUS;
+  const accent = full ? 'var(--color-gold)' : reached ? 'var(--color-good)' : 'var(--color-ink)';
+  const btn = 'rounded-md border border-line px-2.5 py-1 font-bold text-ink';
+  return (
+    <div>
+      <BarHead label="קומות">
+        <b className="text-[15px]" style={{ color: accent }}>{fmtN(floors)}</b>
+        {' / ' + FLOOR_GOAL + ' · '}
+        <span style={{ color: accent }}>{pct}%</span>
+      </BarHead>
+      <Track
+        label="קומות"
+        now={floors}
+        max={FLOOR_BONUS}
+        ticks={[(FLOOR_GOAL / FLOOR_BONUS) * 100]}
+        segs={[{ from: 0, w: base, color: '#2DD4BF' }, { from: base, w: bonus, color: '#FACC15' }]}
+      />
+      <div className="flex items-center justify-between mt-2 text-[11px] text-mute tnum">
+        <span>{full ? 'בונוס הושג ✓' : reached ? 'עד הבונוס ' + (FLOOR_BONUS - floors) : 'עד היעד ' + (FLOOR_GOAL - floors)}</span>
+        <span className="flex items-center gap-1.5">
+          <button onClick={() => onSet(Math.max(0, floors - 1))} disabled={floors <= 0} aria-label="הפחת קומה" className={btn + ' disabled:opacity-40'}>
+            −
+          </button>
+          <button onClick={() => onSet(floors + 1)} aria-label="הוסף קומה" className={btn}>
+            + קומה
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            aria-label="הקלדת קומות"
+            placeholder="הקלד"
+            value={txt !== null ? txt : ''}
+            onChange={(e) => setTxt(e.target.value)}
+            onBlur={commitTxt}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitTxt();
+                e.target.blur();
+              }
+            }}
+            className="w-16 rounded-md px-2 py-1 text-[13px] text-ink text-center"
+          />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* מים: כוס אחת = 350 מ״ל */
 function WaterBar({ cups, onSet }) {
-  const ml = cups * CUP_ML;
+  const [txt, setTxt] = useState(null);
+  const ml = Math.round(cups * CUP_ML);
+  /* הקלדת מ״ל חופשית (לא תמיד כוס של 350). נשמר ככוסות עשרוניות, ולכן שאר האפליקציה לא משתנה */
+  const commitTxt = () => {
+    if (txt !== null) {
+      if (String(txt).trim() !== '') onSet(Math.max(0, num(txt)) / CUP_ML);
+      setTxt(null);
+    }
+  };
   const goal = CUP_GOAL * CUP_ML;
   const pct = Math.round((ml / goal) * 100);
   const btn = 'rounded-md border border-line px-2.5 py-1 font-bold text-ink';
@@ -195,14 +266,32 @@ function WaterBar({ cups, onSet }) {
       </BarHead>
       <Track label="מים" now={ml} max={goal} divs={CUP_GOAL} segs={[{ from: 0, w: Math.min(100, pct), color: '#22D3EE' }]} />
       <div className="flex items-center justify-between mt-1.5 text-[11px] text-mute tnum">
-        <span>{cups} כוסות · {CUP_ML} מ״ל לכוס</span>
+        <span>{Math.round(cups * 10) / 10} כוסות · {CUP_ML} מ״ל לכוס</span>
         <span className="flex items-center gap-1.5">
-          <button onClick={() => onSet(Math.max(0, cups - 1))} disabled={cups <= 0} aria-label="הפחת כוס" className={btn + ' disabled:opacity-40'}>
+          <button onClick={() => onSet(Math.max(0, Math.round((cups - 1) * 100) / 100))} disabled={cups <= 0} aria-label="הפחת כוס" className={btn + ' disabled:opacity-40'}>
             −
           </button>
           <button onClick={() => onSet(cups + 1)} aria-label="הוסף כוס" className={btn}>
             + כוס
           </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            aria-label="הקלדת מ״ל מים"
+            placeholder="מ״ל"
+            value={txt !== null ? txt : ''}
+            onChange={(e) => setTxt(e.target.value)}
+            onBlur={commitTxt}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitTxt();
+                e.target.blur();
+              }
+            }}
+            className="w-16 rounded-md px-2 py-1 text-[13px] text-ink text-center"
+          />
         </span>
       </div>
     </div>
@@ -228,6 +317,7 @@ export default function ProgressBars({ user, today, totals, day, entries }) {
       ))}
       <div className="border-t border-line" />
       <StepsBar steps={day.steps || 0} onSet={(n) => patchDay(user, today, { steps: n })} />
+      {PROFILES[user].floors && <FloorsBar floors={day.floors || 0} onSet={(n) => patchDay(user, today, { floors: n })} />}
       <WaterBar cups={day.water || 0} onSet={(n) => patchDay(user, today, { water: n })} />
     </section>
   );

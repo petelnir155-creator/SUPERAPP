@@ -2,6 +2,8 @@ export const APP_NAME = 'סופר א פטל';
 export const STEP_GOAL = 6000; // יעד צעדים ראשי
 export const STEP_BONUS = 8000; // יעד בונוס
 export const STEP_SLIDER_MAX = 15000; // טווח הסליידר
+export const FLOOR_GOAL = 10; // טיפוס קומות: יעד בסיס (ניר בלבד)
+export const FLOOR_BONUS = 15; // יעד בונוס
 export const CUP_ML = 350; // כוס אחת במ״ל
 export const CUP_GOAL = 8; // יעד כוסות ליום (2,800 מ״ל)
 /* יעדי היקף בטן/טבור (ס״מ). ניר: 97 עד ה-1.1 ואחר כך 94 עד ה-1.2. התקדמות נמדדת מול היעד הפעיל הראשון שעוד לא הושג */
@@ -24,7 +26,7 @@ export const METRICS = [
 ];
 
 export const PROFILES = {
-  nir: { name: 'ניר', goals: { kcal: 1800, p: 150, c: 165, f: 60, fb: 25 }, weekendKcal: 2000 },
+  nir: { name: 'ניר', floors: true, goals: { kcal: 1800, p: 150, c: 165, f: 60, fb: 25 }, weekendKcal: 2000 },
   od: { name: 'אוד', fem: true, instructor: true, goals: { kcal: 1400, p: 120, c: 111, f: 53, fb: 20 }, weekendKcal: 1600 },
 };
 

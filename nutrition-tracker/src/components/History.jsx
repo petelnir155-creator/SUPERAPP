@@ -126,7 +126,7 @@ function NutritionHistory({ user, today }) {
       (map[e.date] = map[e.date] || []).push(e);
     });
     Object.keys(dayDocs).forEach((k) => {
-      if ((dayDocs[k].water || dayDocs[k].steps) && !map[k]) map[k] = [];
+      if ((dayDocs[k].water || dayDocs[k].steps || dayDocs[k].floors) && !map[k]) map[k] = [];
     });
     if (!map[today]) map[today] = [];
     if (extra && !map[extra]) map[extra] = [];
@@ -206,9 +206,9 @@ function NutritionHistory({ user, today }) {
                     );
                   })}
                 </div>
-                {d.day.water || d.day.steps ? (
+                {d.day.water || d.day.steps || d.day.floors ? (
                   <div className="text-[11px] text-mute mt-2 tnum">
-                    מים {fmtN((d.day.water || 0) * CUP_ML)} מ״ל · צעדים {fmtN(d.day.steps || 0)}
+                    מים {fmtN((d.day.water || 0) * CUP_ML)} מ״ל · צעדים {fmtN(d.day.steps || 0)}{PROFILES[user].floors ? ' · קומות ' + (d.day.floors || 0) : ''}
                   </div>
                 ) : null}
               </button>
