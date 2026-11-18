@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CATS, CUP_ML, OVER, PROFILES, goalsFor } from '../lib/config.js';
+import { AVG_START, CATS, CUP_ML, OVER, PROFILES, goalsFor } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
 import { addEntryManual, editEntry, patchDay } from '../lib/actions.js';
 import { FOOD_USER, Store, useStoreVersion } from '../lib/store.js';
@@ -110,6 +110,18 @@ function DayEditor({ user, date, day }) {
   );
 }
 
+/* מפתחות תאריך YYYY-MM-DD מ-start ועד היום (לא כולל היום) */
+function daysBetween(start, today) {
+  const out = [];
+  const d = new Date(start + 'T12:00:00Z');
+  const end = new Date(today + 'T12:00:00Z');
+  while (d < end) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
 function NutritionHistory({ user, today }) {
   const g = useG();
   const ver = useStoreVersion();
@@ -137,9 +149,21 @@ function NutritionHistory({ user, today }) {
   }, [log, dayDocs, extra, today]);
 
   const editing = log.find((e) => e.id === editId);
-  // הממוצע לא כולל את היום הנוכחי: היום עוד לא נגמר ולכן מעוות את התמונה
-  const last7 = days.filter((d) => d.items.length && d.date !== today).slice(0, 7);
-  const avg = (k) => (last7.length ? Math.round(last7.reduce((s, d) => s + d.t[k], 0) / last7.length) : 0);
+  // ממוצע יומי מצטבר: כל ימי הלוח מ-AVG_START ועד אתמול (בלי היום הנוכחי). יום בלי נתונים נספר כאפס
+  const avgDays = useMemo(() => daysBetween(AVG_START, today), [today]);
+  const avgN = avgDays.length;
+  const avgOf = (fn) => (avgN ? Math.round(avgDays.reduce((s, k) => s + fn(k), 0) / avgN) : 0);
+  const nutri = useMemo(() => {
+    const m = {};
+    log.forEach((e) => {
+      (m[e.date] = m[e.date] || []).push(e);
+    });
+    return m;
+  }, [log]);
+  const avg = (k) => avgOf((d) => sumM(nutri[d] || [])[k]);
+  const avgWater = avgOf((d) => ((dayDocs[d] && dayDocs[d].water) || 0) * CUP_ML);
+  const avgSteps = avgOf((d) => (dayDocs[d] && dayDocs[d].steps) || 0);
+  const avgFloors = avgOf((d) => (dayDocs[d] && dayDocs[d].floors) || 0);
 
   return (
     <div className="p-3 space-y-3">
@@ -155,12 +179,23 @@ function NutritionHistory({ user, today }) {
         />
       )}
       <div className="bg-surf border border-line rounded-lg p-4 space-y-2">
-        <h2 className="font-bold">{last7.length > 1 ? 'ממוצע ' + last7.length + ' ימים אחרונים (לא כולל היום)' : last7.length === 1 ? 'יום קודם אחד תועד (לא כולל היום)' : 'עוד אין ימים קודמים לממוצע'}</h2>
-        {last7.length > 0 ? (
-          <p className="text-sm text-mute tnum">
-            {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן · {fmtN(avg('fb'))} סיבים
-          </p>
-        ) : null}
+        <h2 className="font-bold">ממוצע יומי</h2>
+        {avgN > 0 ? (
+          <>
+            <p className="text-sm text-mute tnum">
+              {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן · {fmtN(avg('fb'))} סיבים
+            </p>
+            <p className="text-sm text-mute tnum">
+              מים {fmtN(avgWater)} מ״ל · צעדים {fmtN(avgSteps)}
+              {PROFILES[user].floors ? ' · קומות ' + fmtN(avgFloors) : ''}
+            </p>
+            <p className="text-[11px] text-mute tnum">
+              {avgN} ימים: מ-{fmtDay(AVG_START)} עד אתמול (לא כולל היום)
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-mute">הממוצע יתחיל להיספר מחר</p>
+        )}
         <Field label={'יום שלא תועד? ' + g('בחר', 'בחרי') + ' תאריך'}>
           <input
             className={inputCls}

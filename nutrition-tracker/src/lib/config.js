@@ -4,6 +4,7 @@ export const STEP_BONUS = 8000; // יעד בונוס
 export const STEP_SLIDER_MAX = 15000; // טווח הסליידר
 export const FLOOR_GOAL = 10; // טיפוס קומות: יעד בסיס (ניר בלבד)
 export const FLOOR_BONUS = 15; // יעד בונוס
+export const AVG_START = '2026-11-15'; // ממוצע יומי מצטבר: מתאריך זה ועד אתמול
 export const CUP_ML = 350; // כוס אחת במ״ל
 export const CUP_GOAL = 8; // יעד כוסות ליום (2,800 מ״ל)
 /* יעדי היקף בטן/טבור (ס״מ). ניר: 97 עד ה-1.1 ואחר כך 94 עד ה-1.2. התקדמות נמדדת מול היעד הפעיל הראשון שעוד לא הושג */
