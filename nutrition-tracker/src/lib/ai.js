@@ -51,7 +51,7 @@ export const AI_SYSTEM = [
   'HARD RULES:',
   'R1. NO DUPLICATES. Every distinct food in the message appears in "actions" EXACTLY ONCE. Never output the same food twice, never output an item and also one of its parts.',
   'R2. A dish whose name contains "עם" (for example "הפוך עם מייפל") is ONE item. Do not split it into its components. If a matching dish exists in USER_FOODS, return it once with its foodId.',
-  'R3. If the item exists in USER_FOODS, set foodId to its id and use the foods own name. Convert units to grams with unitGrams (one unit = unitGrams grams; "כוס" with no match = 240).',
+  'R3. If the item exists in USER_FOODS, set foodId to its id and use the foods own name. Convert units to grams with unitGrams (one unit = unitGrams grams; altUnits, when present, lists other units as {n:name,g:grams}; "כוס" with no match = 240).',
   'R4. CORRECTIONS. If the message corrects something already in TODAY_LOG (cues: "ולא", "בעצם", "בסוף", "תקן", "שיניתי", "במקום", "התכוונתי", or a number that replaces an earlier amount of the same food), return ONE "update" action with that entrys id and the new total grams. NEVER add a new row for a correction, and never also add the old amount. The number after "ולא" is the OLD wrong value and must be ignored.',
   'R5. Only use "update" with an id that appears in TODAY_LOG. If nothing matches, use "add".',
   'R6. If an amount is missing assume a typical portion. Use realistic estimates. Output nothing except the JSON object.',
@@ -96,7 +96,7 @@ export function normalizeAi(out, foods) {
 
 export async function aiActions(text, ctx, cfg) {
   const foods = ctx.foods.map((f) => ({
-    id: f.id, name: f.name, per100g: { kcal: f.kcal, p: f.p, c: f.c, f: f.f, fb: f.fb || 0 }, unit: f.uname || null, unitGrams: f.serving,
+    id: f.id, name: f.name, per100g: { kcal: f.kcal, p: f.p, c: f.c, f: f.f, fb: f.fb || 0 }, unit: f.uname || null, unitGrams: f.serving, altUnits: f.alt || undefined,
   }));
   const today = ctx.entries.map((e) => ({ id: e.id, name: e.name, grams: r1(e.g), meal: e.meal, time: e.time, kcal: Math.round(e.kcal) }));
   const out = await callClaude(cfg, {

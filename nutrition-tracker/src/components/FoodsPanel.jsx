@@ -16,6 +16,8 @@ export default function FoodsPanel({ user }) {
   const foods = useMemo(() => Store.list('food', FOOD_USER), [ver, user]);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState({ protein: true });
+  const [sort, setSort] = useState('cat');
+  const [openFood, setOpenFood] = useState(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -33,8 +35,9 @@ export default function FoodsPanel({ user }) {
     if (!canSave) return;
     const hasUnit = size > 0 && (isUnit || !!form.uname.trim());
     const id = form.id || uid();
+    const prevAlt = form.id ? (Store.get('food', FOOD_USER, form.id) || {}).alt : null;
     Store.put('food', FOOD_USER, id, {
-      id, cat: form.cat, name: form.name.trim(), ...p100, serving: size > 0 ? size : 100, ...(hasUnit ? { uname: unitName } : {}),
+      id, cat: form.cat, name: form.name.trim(), ...p100, serving: size > 0 ? size : 100, ...(hasUnit ? { uname: unitName } : {}), ...(prevAlt ? { alt: prevAlt } : {}),
     });
     setOpen((o) => ({ ...o, [form.cat]: true }));
     setForm(EMPTY);
@@ -70,8 +73,68 @@ export default function FoodsPanel({ user }) {
   );
 
   const nq = norm(q);
-  const groups = CATS.map((c) => ({ ...c, items: foods.filter((f) => catOf(f) === c.id && (!nq || norm(f.name).includes(nq))) }));
+  const matches = foods.filter((f) => !nq || norm(f.name).includes(nq));
+  const groups = CATS.map((c) => ({ ...c, items: matches.filter((f) => catOf(f) === c.id) }));
   const shown = nq ? groups.filter((x) => x.items.length) : groups;
+  const byName = (a, b) => a.name.localeCompare(b.name, 'he');
+  /* מיון לפי ערכים ל-100 גרם. ברירת המחדל: לפי קטגוריות */
+  const SORTS = {
+    p: { label: 'הכי הרבה חלבון', val: (f) => f.p, dir: -1, tag: (f) => r1(f.p) + ' גר׳ חלבון' },
+    fb: { label: 'הכי הרבה סיבים', val: (f) => f.fb || 0, dir: -1, tag: (f) => r1(f.fb || 0) + ' גר׳ סיבים' },
+    kcal: { label: 'הכי פחות קלוריות', val: (f) => f.kcal, dir: 1, tag: (f) => Math.round(f.kcal) + ' קק״ל' },
+  };
+  const sorted = SORTS[sort] ? matches.slice().sort((a, b) => SORTS[sort].dir * (SORTS[sort].val(a) - SORTS[sort].val(b)) || byName(a, b)) : [];
+
+  /* שורת מוצר מכווצת (שם, תגית מיון, עריכה ומחיקה). לחיצה פותחת את הפירוט המלא */
+  const row = (f, tag) => {
+    const isOpen = openFood === f.id;
+    return (
+      <li key={f.id}>
+        <div className="px-4 py-2.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpenFood(isOpen ? null : f.id)}
+            aria-expanded={isOpen}
+            aria-label={'פירוט ' + f.name}
+            className="flex-1 min-w-0 flex items-center gap-2 text-right"
+          >
+            <span className="font-bold truncate">{f.name}</span>
+            {tag ? <span className="shrink-0 rounded-full border border-line px-2 py-0.5 text-[11px] text-mute tnum">{tag}</span> : null}
+            <span className="ms-auto text-xs text-mute shrink-0" aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
+          </button>
+          <button onClick={() => startEdit(f)} aria-label={'ערוך ' + f.name} className="w-9 h-9 rounded-md text-mute border border-line shrink-0">
+            ✎
+          </button>
+          <button
+            onClick={() => Store.remove('food', FOOD_USER, f.id)}
+            aria-label={'מחק ' + f.name}
+            className="w-9 h-9 rounded-md text-xl leading-none text-mute border border-line shrink-0"
+          >
+            ×
+          </button>
+        </div>
+        {isOpen && (
+          <div className="px-4 pb-3 text-xs text-mute tnum space-y-0.5">
+            {f.uname ? (
+              <div>
+                {f.uname} ({f.serving} גר׳): {r1((f.kcal * f.serving) / 100)} קק״ל · {r1((f.p * f.serving) / 100)} חלבון · {r1((f.c * f.serving) / 100)} פחמ׳ ·{' '}
+                {r1((f.f * f.serving) / 100)} שומן · {r1(((f.fb || 0) * f.serving) / 100)} סיבים
+              </div>
+            ) : null}
+            {(f.alt || []).map((a) => (
+              <div key={a.n}>
+                {a.n} ({a.g} גר׳): {r1((f.kcal * a.g) / 100)} קק״ל · {r1((f.p * a.g) / 100)} חלבון · {r1((f.c * a.g) / 100)} פחמ׳ · {r1((f.f * a.g) / 100)} שומן ·{' '}
+                {r1(((f.fb || 0) * a.g) / 100)} סיבים
+              </div>
+            ))}
+            <div>
+              ל-100 גר׳: {r1(f.kcal)} קק״ל · {r1(f.p)} חלבון · {r1(f.c)} פחמ׳ · {r1(f.f)} שומן · {r1(f.fb || 0)} סיבים
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -83,6 +146,20 @@ export default function FoodsPanel({ user }) {
         aria-label="חיפוש מאכל"
         className="w-full rounded-md px-3 py-2.5 text-base text-ink"
       />
+      <div role="group" aria-label="סדר לפי" className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs font-bold text-mute">סדר לפי:</span>
+        {[['cat', 'קטגוריות'], ...Object.entries(SORTS).map(([k, v]) => [k, v.label])].map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setSort(k)}
+            aria-pressed={sort === k}
+            className={'rounded-full px-3 py-1 text-xs font-bold border border-line ' + (sort === k ? chipOn : 'text-ink')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <button
         onClick={() => {
           if (adding) setForm(EMPTY);
@@ -165,61 +242,36 @@ export default function FoodsPanel({ user }) {
         </div>
       )}
 
-      <div className="space-y-2">
-        {shown.map((c) => {
-          const isOpen = nq ? true : !!open[c.id];
-          return (
-            <div key={c.id} className="bg-surf border border-line rounded-lg overflow-hidden">
-              <button
-                onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
-                aria-expanded={isOpen}
-                className="w-full px-4 py-3 flex items-center justify-between text-right"
-              >
-                <span className="font-bold">{c.label}</span>
-                <span className="text-sm text-mute">
-                  {c.items.length} {isOpen ? '▴' : '▾'}
-                </span>
-              </button>
-              {isOpen && (
-                <ul className="border-t border-line divide-y divide-line">
-                  {c.items.length === 0 ? (
-                    <li className="px-4 py-3 text-sm text-mute">אין עדיין מאכלים בקטגוריה הזו.</li>
-                  ) : (
-                    c.items.map((f) => (
-                      <li key={f.id} className="px-4 py-3 flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold truncate">{f.name}</div>
-                          <div className="text-xs text-mute tnum">
-                            {f.uname ? (
-                              <div>
-                                {f.uname} ({f.serving} גר׳): {r1((f.kcal * f.serving) / 100)} קק״ל · {r1((f.p * f.serving) / 100)} חלבון ·{' '}
-                                {r1((f.c * f.serving) / 100)} פחמ׳ · {r1((f.f * f.serving) / 100)} שומן · {r1(((f.fb || 0) * f.serving) / 100)} סיבים
-                              </div>
-                            ) : null}
-                            <div>
-                              ל-100 גר׳: {r1(f.kcal)} קק״ל · {r1(f.p)} חלבון · {r1(f.c)} פחמ׳ · {r1(f.f)} שומן · {r1(f.fb || 0)} סיבים
-                            </div>
-                          </div>
-                        </div>
-                        <button onClick={() => startEdit(f)} aria-label={'ערוך ' + f.name} className="w-9 h-9 rounded-md text-mute border border-line shrink-0">
-                          ✎
-                        </button>
-                        <button
-                          onClick={() => Store.remove('food', FOOD_USER, f.id)}
-                          aria-label={'מחק ' + f.name}
-                          className="w-9 h-9 rounded-md text-xl leading-none text-mute border border-line shrink-0"
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {sort !== 'cat' ? (
+        <ul className="bg-surf border border-line rounded-lg divide-y divide-line overflow-hidden">
+          {sorted.length === 0 ? <li className="px-4 py-3 text-sm text-mute">לא נמצאו מאכלים.</li> : sorted.map((f) => row(f, SORTS[sort].tag(f)))}
+        </ul>
+      ) : (
+        <div className="space-y-2">
+          {shown.map((c) => {
+            const isOpen = nq ? true : !!open[c.id];
+            return (
+              <div key={c.id} className="bg-surf border border-line rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
+                  aria-expanded={isOpen}
+                  className="w-full px-4 py-3 flex items-center justify-between text-right"
+                >
+                  <span className="font-bold">{c.label}</span>
+                  <span className="text-sm text-mute">
+                    {c.items.length} {isOpen ? '▴' : '▾'}
+                  </span>
+                </button>
+                {isOpen && (
+                  <ul className="border-t border-line divide-y divide-line">
+                    {c.items.length === 0 ? <li className="px-4 py-3 text-sm text-mute">אין עדיין מאכלים בקטגוריה הזו.</li> : c.items.map((f) => row(f))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

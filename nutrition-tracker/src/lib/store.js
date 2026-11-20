@@ -168,9 +168,7 @@ export const useStoreVersion = () => useSyncExternalStore(Store.subscribe, Store
 /* מאגר ברירת המחדל נזרע פעם אחת לכל משתמש */
 export function seedFoods() {
   Store.migrateFoods();
-  if (!LS.get('nt2:seeded-all', false)) {
-    DEMO_FOODS.forEach((f) => Store.seed('food', FOOD_USER, f.id, f));
-    LS.set('nt2:seeded-all', true);
-  }
+  // זריעה בכל טעינה: מוסיפה רק מאכלים חסרים (גם מאכל שנמחק נשאר כמסמך מחיקה ולא חוזר)
+  DEMO_FOODS.forEach((f) => Store.seed('food', FOOD_USER, f.id, f));
   Store.flush();
 }

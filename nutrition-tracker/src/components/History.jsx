@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { currentWeek, pastWeeks, rangeLabel } from '../lib/weeks.js';
 import { AVG_START, CATS, CUP_ML, OVER, PROFILES, goalsFor } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
 import { addEntryManual, editEntry, patchDay } from '../lib/actions.js';
@@ -19,13 +20,18 @@ function AddToDay({ user, date, foods }) {
   const qn = num(qty);
   const submit = () => {
     if (!food || qn <= 0) return;
-    addEntryManual(user, date, food, qn, unit, meal);
+    const alt = unit.startsWith('alt') && food.alt ? food.alt[Number(unit.slice(3))] : null;
+    if (alt) addEntryManual(user, date, food, qn * alt.g, 'gram', meal); // יחידה נוספת (ראש, סלסילה…) מומרת לגרמים
+    else addEntryManual(user, date, food, qn, unit, meal);
     setQty('');
   };
   return (
     <div className="rounded-md border border-line p-3 space-y-2">
       <div className="font-bold text-sm">{g('הוסף', 'הוסיפי')} מאכל ליום הזה</div>
-      <select className={inputCls} value={foodId} onChange={(e) => setFoodId(e.target.value)} aria-label="מאכל">
+      <select className={inputCls} value={foodId} onChange={(e) => {
+          setFoodId(e.target.value);
+          setUnit('gram');
+        }} aria-label="מאכל">
         <option value="">{g('בחר', 'בחרי')} מאכל…</option>
         {CATS.map((c) => {
           const items = foods.filter((f) => catOf(f) === c.id);
@@ -45,6 +51,11 @@ function AddToDay({ user, date, foods }) {
         <select className={inputCls} value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="יחידה">
           <option value="gram">גרם</option>
           <option value="serving">{food ? (food.uname || 'מנות') + ' (' + food.serving + ' גר׳)' : 'מנות'}</option>
+          {food && (food.alt || []).map((a, i) => (
+            <option key={a.n} value={'alt' + i}>
+              {a.n} ({a.g} גר׳)
+            </option>
+          ))}
         </select>
       </div>
       <MealChips value={meal} onChange={setMeal} />
@@ -58,10 +69,30 @@ function AddToDay({ user, date, foods }) {
 /* עריכת נתוני יום: מים, צעדים וסופ״ש, גם לימים קודמים */
 function DayEditor({ user, date, day }) {
   const [txt, setTxt] = useState(null);
+  const [fTxt, setFTxt] = useState(null);
+  const [mlTxt, setMlTxt] = useState(null);
   const commit = () => {
     if (txt !== null) {
       patchDay(user, date, { steps: Math.round(num(txt)) });
       setTxt(null);
+    }
+  };
+  const commitFloors = () => {
+    if (fTxt !== null) {
+      patchDay(user, date, { floors: Math.round(num(fTxt)) });
+      setFTxt(null);
+    }
+  };
+  const commitMl = () => {
+    if (mlTxt !== null) {
+      if (String(mlTxt).trim() !== '') patchDay(user, date, { water: num(mlTxt) / CUP_ML });
+      setMlTxt(null);
+    }
+  };
+  const onEnter = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.target.blur();
     }
   };
   const btn = 'w-9 h-9 rounded-md border border-line font-bold';
@@ -71,16 +102,31 @@ function DayEditor({ user, date, day }) {
       <div className="flex items-center justify-between">
         <span className="font-bold">מים</span>
         <span className="flex items-center gap-2 tnum">
-          <button className={btn} aria-label="הפחת כוס" disabled={cups <= 0} onClick={() => patchDay(user, date, { water: Math.max(0, cups - 1) })}>
+          <button className={btn} aria-label="הפחת כוס" disabled={cups <= 0} onClick={() => patchDay(user, date, { water: Math.max(0, Math.round((cups - 1) * 100) / 100) })}>
             −
           </button>
           <span className="w-24 text-center">
-            {cups} כוסות · {fmtN(cups * CUP_ML)} מ״ל
+            {Math.round(cups * 10) / 10} כוסות · {fmtN(cups * CUP_ML)} מ״ל
           </span>
           <button className={btn} aria-label="הוסף כוס" onClick={() => patchDay(user, date, { water: cups + 1 })}>
             +
           </button>
         </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="font-bold">מים במ״ל (הקלדה)</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          aria-label="מים במ״ל ליום"
+          className="w-28 rounded-md px-2 py-1.5 text-base text-ink text-center tnum"
+          value={mlTxt !== null ? mlTxt : ''}
+          placeholder={String(Math.round(cups * CUP_ML))}
+          onChange={(e) => setMlTxt(e.target.value)}
+          onBlur={commitMl}
+          onKeyDown={onEnter}
+        />
       </div>
       <div className="flex items-center justify-between">
         <span className="font-bold">צעדים</span>
@@ -102,6 +148,23 @@ function DayEditor({ user, date, day }) {
           }}
         />
       </div>
+      {PROFILES[user].floors && (
+        <div className="flex items-center justify-between">
+          <span className="font-bold">קומות</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            aria-label="קומות ליום"
+            className="w-28 rounded-md px-2 py-1.5 text-base text-ink text-center tnum"
+            value={fTxt !== null ? fTxt : day.floors || ''}
+            placeholder="0"
+            onChange={(e) => setFTxt(e.target.value)}
+            onBlur={commitFloors}
+            onKeyDown={onEnter}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <span className="font-bold">מצב סופ״ש (יעד {fmtN(PROFILES[user].weekendKcal)} קק״ל)</span>
         <Switch on={!!day.wk} onChange={(v) => patchDay(user, date, { wk: v })} label="מצב סופ״ש ליום" />
@@ -110,16 +173,19 @@ function DayEditor({ user, date, day }) {
   );
 }
 
-/* מפתחות תאריך YYYY-MM-DD מ-start ועד היום (לא כולל היום) */
-function daysBetween(start, today) {
-  const out = [];
-  const d = new Date(start + 'T12:00:00Z');
-  const end = new Date(today + 'T12:00:00Z');
-  while (d < end) {
-    out.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return out;
+/* שורות ממוצע לרשימת ימים. יום בלי נתונים נספר כאפס */
+function AvgLines({ user, avgs }) {
+  return (
+    <>
+      <p className="text-sm text-mute tnum">
+        {fmtN(avgs.kcal)} קק״ל · {fmtN(avgs.p)} חלבון · {fmtN(avgs.c)} פחמימות · {fmtN(avgs.f)} שומן · {fmtN(avgs.fb)} סיבים
+      </p>
+      <p className="text-sm text-mute tnum">
+        מים {fmtN(avgs.water)} מ״ל · צעדים {fmtN(avgs.steps)}
+        {PROFILES[user].floors ? ' · קומות ' + fmtN(avgs.floors) : ''}
+      </p>
+    </>
+  );
 }
 
 function NutritionHistory({ user, today }) {
@@ -149,10 +215,7 @@ function NutritionHistory({ user, today }) {
   }, [log, dayDocs, extra, today]);
 
   const editing = log.find((e) => e.id === editId);
-  // ממוצע יומי מצטבר: כל ימי הלוח מ-AVG_START ועד אתמול (בלי היום הנוכחי). יום בלי נתונים נספר כאפס
-  const avgDays = useMemo(() => daysBetween(AVG_START, today), [today]);
-  const avgN = avgDays.length;
-  const avgOf = (fn) => (avgN ? Math.round(avgDays.reduce((s, k) => s + fn(k), 0) / avgN) : 0);
+  // ממוצע שבועי (ראשון עד שבת). השבוע הנוכחי: מיום ראשון ועד אתמול, בלי היום. יום בלי נתונים נספר כאפס
   const nutri = useMemo(() => {
     const m = {};
     log.forEach((e) => {
@@ -160,10 +223,19 @@ function NutritionHistory({ user, today }) {
     });
     return m;
   }, [log]);
-  const avg = (k) => avgOf((d) => sumM(nutri[d] || [])[k]);
-  const avgWater = avgOf((d) => ((dayDocs[d] && dayDocs[d].water) || 0) * CUP_ML);
-  const avgSteps = avgOf((d) => (dayDocs[d] && dayDocs[d].steps) || 0);
-  const avgFloors = avgOf((d) => (dayDocs[d] && dayDocs[d].floors) || 0);
+  const avgsOf = (list) => {
+    const n = list.length;
+    const mean = (fn) => (n ? Math.round(list.reduce((s, k) => s + fn(k), 0) / n) : 0);
+    const out = {};
+    ['kcal', 'p', 'c', 'f', 'fb'].forEach((k) => (out[k] = mean((d) => sumM(nutri[d] || [])[k])));
+    out.water = mean((d) => ((dayDocs[d] && dayDocs[d].water) || 0) * CUP_ML);
+    out.steps = mean((d) => (dayDocs[d] && dayDocs[d].steps) || 0);
+    out.floors = mean((d) => (dayDocs[d] && dayDocs[d].floors) || 0);
+    return out;
+  };
+  const cur = useMemo(() => currentWeek(today), [today]);
+  const past = useMemo(() => pastWeeks(today, AVG_START), [today]);
+  const [moreWeeks, setMoreWeeks] = useState(false);
 
   return (
     <div className="p-3 space-y-3">
@@ -179,22 +251,31 @@ function NutritionHistory({ user, today }) {
         />
       )}
       <div className="bg-surf border border-line rounded-lg p-4 space-y-2">
-        <h2 className="font-bold">ממוצע יומי</h2>
-        {avgN > 0 ? (
-          <>
-            <p className="text-sm text-mute tnum">
-              {fmtN(avg('kcal'))} קק״ל · {fmtN(avg('p'))} חלבון · {fmtN(avg('c'))} פחמימות · {fmtN(avg('f'))} שומן · {fmtN(avg('fb'))} סיבים
-            </p>
-            <p className="text-sm text-mute tnum">
-              מים {fmtN(avgWater)} מ״ל · צעדים {fmtN(avgSteps)}
-              {PROFILES[user].floors ? ' · קומות ' + fmtN(avgFloors) : ''}
-            </p>
-            <p className="text-[11px] text-mute tnum">
-              {avgN} ימים: מ-{fmtDay(AVG_START)} עד אתמול (לא כולל היום)
-            </p>
-          </>
+        <h2 className="font-bold">ממוצע שבועי</h2>
+        <div className="text-[11px] text-mute tnum">
+          השבוע הנוכחי · {rangeLabel(cur)}
+          {cur.days.length > 0 ? ' · ' + (cur.days.length === 1 ? 'יום אחד' : cur.days.length + ' ימים') + ' שהסתיימו (לא כולל היום)' : ''}
+        </div>
+        {cur.days.length > 0 ? (
+          <AvgLines user={user} avgs={avgsOf(cur.days)} />
         ) : (
-          <p className="text-sm text-mute">הממוצע יתחיל להיספר מחר</p>
+          <p className="text-sm text-mute">השבוע רק התחיל – הנתונים יעודכנו מחר</p>
+        )}
+        {past.length > 0 && (
+          <div className="border-t border-line pt-2 space-y-2">
+            <div className="text-[11px] font-bold text-mute">שבועות קודמים</div>
+            {(moreWeeks ? past : past.slice(0, 1)).map((w) => (
+              <div key={w.start} className="space-y-0.5">
+                <div className="text-[11px] text-mute tnum">{rangeLabel(w)} · שבוע מלא</div>
+                <AvgLines user={user} avgs={avgsOf(w.days)} />
+              </div>
+            ))}
+            {past.length > 1 && (
+              <button type="button" onClick={() => setMoreWeeks((o) => !o)} aria-expanded={moreWeeks} className="text-xs font-bold text-brand">
+                {moreWeeks ? 'הסתר שבועות קודמים' : (past.length === 2 ? 'עוד שבוע קודם' : 'עוד ' + (past.length - 1) + ' שבועות קודמים')}
+              </button>
+            )}
+          </div>
         )}
         <Field label={'יום שלא תועד? ' + g('בחר', 'בחרי') + ' תאריך'}>
           <input
