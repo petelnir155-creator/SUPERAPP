@@ -169,6 +169,15 @@ export const useStoreVersion = () => useSyncExternalStore(Store.subscribe, Store
 export function seedFoods() {
   Store.migrateFoods();
   // זריעה בכל טעינה: מוסיפה רק מאכלים חסרים (גם מאכל שנמחק נשאר כמסמך מחיקה ולא חוזר)
-  DEMO_FOODS.forEach((f) => Store.seed('food', FOOD_USER, f.id, f));
+  // reseed: מוסיף חסרים ומרענן רק מאכלי זריעה שלא נערכו (ts<=1), כך שעדכוני קטגוריה מגיעים גם למאגר קיים
+  DEMO_FOODS.forEach((f) => Store.reseed('food', FOOD_USER, f.id, f));
+  // מאכל זריעה שכבר נערך והיה בקטגוריה המאוחדת הישנה עובר לקטגוריה החדשה שלו
+  if (!LS.get('nt2:cats-split', false)) {
+    DEMO_FOODS.forEach((f) => {
+      const cur = Store.get('food', FOOD_USER, f.id);
+      if (cur && cur.cat === 'carb' && f.cat === 'veg') Store.put('food', FOOD_USER, f.id, { ...cur, cat: 'veg' });
+    });
+    LS.set('nt2:cats-split', true);
+  }
   Store.flush();
 }

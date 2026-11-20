@@ -58,11 +58,12 @@ export function applyActions(user, actions, o) {
 }
 
 /* עריכה ידנית של רשומה והוספה ידנית ליום (היסטוריה) */
+/* p.macros (אופציונלי): ערכים תזונתיים שנערכו ידנית לרשומה הזו בלבד. המאכל במאגר לא משתנה */
 export function editEntry(user, e, p) {
   const r = e.qty > 0 ? p.qty / e.qty : 1;
   Store.put('log', user, e.id, {
     ...e, qty: p.qty, g: (e.g || e.qty) * r, meal: p.meal, time: p.time, date: p.date || e.date,
-    kcal: e.kcal * r, p: e.p * r, c: e.c * r, f: e.f * r, fb: (e.fb || 0) * r,
+    ...(p.macros || { kcal: e.kcal * r, p: e.p * r, c: e.c * r, f: e.f * r, fb: (e.fb || 0) * r }),
   });
 }
 

@@ -41,7 +41,8 @@ export const goalsFor = (user, weekend) =>
 
 export const CATS = [
   { id: 'protein', label: 'חלבונים' },
-  { id: 'carb', label: 'פחמימות וירקות' },
+  { id: 'veg', label: 'ירקות' },
+  { id: 'carb', label: 'פחמימות' },
   { id: 'drink', label: 'משקאות' },
   { id: 'sweet', label: 'נשנושים ומתוקים' },
   { id: 'out', label: 'ארוחות בחוץ' },
