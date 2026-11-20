@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { CUP_GOAL, FLOOR_BONUS, FLOOR_GOAL, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
+import { CUP_GOAL, FLOOR_BONUS, FLOOR_GOAL, FLOOR_SLIDER_MAX, CUP_ML, OVER, PROFILES, STEP_BONUS, STEP_GOAL, STEP_SLIDER_MAX, goalsFor } from '../lib/config.js';
 import { patchDay } from '../lib/actions.js';
 import { fmtN, num } from '../lib/utils.js';
 import { Switch, Track } from './ui.jsx';
 
 function BarHead({ label, children }) {
   return (
-    <div className="flex items-baseline justify-between mb-1.5 text-[13px]">
+    <div className="flex items-baseline justify-between mb-1 text-[13px]">
       <span className="font-bold">{label}</span>
       <span className="tnum text-mute">{children}</span>
     </div>
@@ -74,12 +74,11 @@ function NutrientBar({ g, value, entries }) {
 }
 
 /*
-  צעדים: עד 6,000 צבע אחד, ומעבר לכך ממשיכים בצבע אחר אל יעד הבונוס 8,000.
-  העדכון ישיר: גרירת הסליידר, כפתורי ± או הקלדה. הכול נשמר מיד, בלי כפתור שמירה.
+  סליידר-פס משותף לצעדים ולקומות: הפס והסליידר הם אותו רכיב (הסליידר שקוף מעל הפס).
+  עד היעד צבע אחד, מהיעד ומעלה צבע בונוס. כל הזזה נשמרת מיד, בלי כפתור שמירה.
 */
-function StepsBar({ steps, onSet }) {
+function SliderStat({ label, value, onSet, goal, bonus, max, step, fmt = fmtN }) {
   const [draft, setDraft] = useState(null); // ערך תוך כדי גרירה, כדי שהפס יזוז בזמן אמת
-  const [txt, setTxt] = useState(null);
   const timer = useRef(null);
   const pending = useRef(null);
 
@@ -99,146 +98,45 @@ function StepsBar({ steps, onSet }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, 200); // כתיבה לחנות בזמן אמת, בלי להציף בכל פיקסל
   };
-  const release = () => flush();
-  const bump = (d) => onSet(Math.max(0, steps + d));
-  const commitTxt = () => {
-    if (txt !== null) {
-      onSet(Math.round(num(txt)));
-      setTxt(null);
-    }
-  };
 
-  const v = draft !== null ? draft : steps;
-  const base = (Math.min(v, STEP_GOAL) / STEP_BONUS) * 100;
-  const bonus = (Math.max(0, Math.min(v, STEP_BONUS) - STEP_GOAL) / STEP_BONUS) * 100;
-  const pct = Math.round((v / STEP_GOAL) * 100);
-  const reached = v >= STEP_GOAL;
-  const full = v >= STEP_BONUS;
-  const accent = full ? 'var(--color-gold)' : reached ? 'var(--color-good)' : 'var(--color-ink)';
-  const btn = 'rounded-md border border-line px-2.5 py-1 font-bold text-ink';
+  const v = draft !== null ? draft : value;
+  const base = (Math.min(v, goal) / max) * 100;
+  const extra = (Math.max(0, Math.min(v, max) - goal) / max) * 100;
+  const pct = Math.round((v / goal) * 100);
+  const full = v >= bonus;
+  const accent = full ? 'var(--color-gold)' : v >= goal ? 'var(--color-good)' : 'var(--color-ink)';
   return (
     <div>
-      <BarHead label="צעדים">
-        <b className="text-[15px]" style={{ color: accent }}>{fmtN(v)}</b>
-        {' / ' + fmtN(STEP_GOAL) + ' · '}
+      <BarHead label={label}>
+        <b className="text-[15px]" style={{ color: accent }}>{fmt(v)}</b>
+        {' / ' + fmt(goal) + ' · '}
         <span style={{ color: accent }}>{pct}%</span>
+        {full ? <span style={{ color: accent }}> ✓ בונוס</span> : null}
       </BarHead>
-      <Track
-        label="צעדים"
-        now={v}
-        max={STEP_BONUS}
-        ticks={[(STEP_GOAL / STEP_BONUS) * 100]}
-        segs={[{ from: 0, w: base, color: '#2DD4BF' }, { from: base, w: bonus, color: '#FACC15' }]}
-      />
-      <input
-        type="range"
-        min="0"
-        max={STEP_SLIDER_MAX}
-        step="100"
-        value={Math.min(v, STEP_SLIDER_MAX)}
-        aria-label="צעדים"
-        onChange={(e) => drag(Number(e.target.value))}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onKeyUp={release}
-        onBlur={release}
-        className="block w-full mt-2 h-6"
-        style={{ '--pct': Math.min(100, (v / STEP_SLIDER_MAX) * 100) + '%' }}
-      />
-      <div className="flex items-center justify-between mt-1 text-[11px] text-mute tnum">
-        <span>{full ? 'בונוס הושג ✓' : reached ? 'עד הבונוס ' + fmtN(STEP_BONUS - v) : 'עד היעד ' + fmtN(STEP_GOAL - v)}</span>
-        <span className="flex items-center gap-1.5">
-          <button onClick={() => bump(-500)} disabled={steps <= 0} aria-label="הפחת 500 צעדים" className={btn + ' disabled:opacity-40'}>
-            <span dir="ltr">−500</span>
-          </button>
-          <button onClick={() => bump(500)} aria-label="הוסף 500 צעדים" className={btn}>
-            <span dir="ltr">+500</span>
-          </button>
-          <button onClick={() => bump(1000)} aria-label="הוסף 1,000 צעדים" className={btn}>
-            <span dir="ltr">+1,000</span>
-          </button>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            aria-label="הקלדת צעדים"
-            placeholder="הקלד"
-            value={txt !== null ? txt : ''}
-            onChange={(e) => setTxt(e.target.value)}
-            onBlur={commitTxt}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitTxt();
-                e.target.blur();
-              }
-            }}
-            className="w-16 rounded-md px-2 py-1 text-[13px] text-ink text-center"
+      <div className="relative h-6">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2">
+          <Track
+            label={label}
+            now={v}
+            max={max}
+            ticks={[(goal / max) * 100, (bonus / max) * 100]}
+            segs={[{ from: 0, w: base, color: '#2DD4BF' }, { from: base, w: extra, color: '#FACC15' }]}
           />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* טיפוס קומות (ניר בלבד): יעד בסיס 10, בונוס 15. הכפתורים והקלדה נשמרים מיד */
-function FloorsBar({ floors, onSet }) {
-  const [txt, setTxt] = useState(null);
-  const commitTxt = () => {
-    if (txt !== null) {
-      onSet(Math.max(0, Math.round(num(txt))));
-      setTxt(null);
-    }
-  };
-  const base = (Math.min(floors, FLOOR_GOAL) / FLOOR_BONUS) * 100;
-  const bonus = (Math.max(0, Math.min(floors, FLOOR_BONUS) - FLOOR_GOAL) / FLOOR_BONUS) * 100;
-  const pct = Math.round((floors / FLOOR_GOAL) * 100);
-  const reached = floors >= FLOOR_GOAL;
-  const full = floors >= FLOOR_BONUS;
-  const accent = full ? 'var(--color-gold)' : reached ? 'var(--color-good)' : 'var(--color-ink)';
-  const btn = 'rounded-md border border-line px-2.5 py-1 font-bold text-ink';
-  return (
-    <div>
-      <BarHead label="קומות">
-        <b className="text-[15px]" style={{ color: accent }}>{fmtN(floors)}</b>
-        {' / ' + FLOOR_GOAL + ' · '}
-        <span style={{ color: accent }}>{pct}%</span>
-      </BarHead>
-      <Track
-        label="קומות"
-        now={floors}
-        max={FLOOR_BONUS}
-        ticks={[(FLOOR_GOAL / FLOOR_BONUS) * 100]}
-        segs={[{ from: 0, w: base, color: '#2DD4BF' }, { from: base, w: bonus, color: '#FACC15' }]}
-      />
-      <div className="flex items-center justify-between mt-2 text-[11px] text-mute tnum">
-        <span>{full ? 'בונוס הושג ✓' : reached ? 'עד הבונוס ' + (FLOOR_BONUS - floors) : 'עד היעד ' + (FLOOR_GOAL - floors)}</span>
-        <span className="flex items-center gap-1.5">
-          <button onClick={() => onSet(Math.max(0, floors - 1))} disabled={floors <= 0} aria-label="הפחת קומה" className={btn + ' disabled:opacity-40'}>
-            −
-          </button>
-          <button onClick={() => onSet(floors + 1)} aria-label="הוסף קומה" className={btn}>
-            + קומה
-          </button>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            aria-label="הקלדת קומות"
-            placeholder="הקלד"
-            value={txt !== null ? txt : ''}
-            onChange={(e) => setTxt(e.target.value)}
-            onBlur={commitTxt}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitTxt();
-                e.target.blur();
-              }
-            }}
-            className="w-16 rounded-md px-2 py-1 text-[13px] text-ink text-center"
-          />
-        </span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max={max}
+          step={step}
+          value={Math.min(v, max)}
+          aria-label={label}
+          onChange={(e) => drag(Number(e.target.value))}
+          onPointerUp={flush}
+          onPointerCancel={flush}
+          onKeyUp={flush}
+          onBlur={flush}
+          className="ov-range absolute inset-0 w-full h-full"
+        />
       </div>
     </div>
   );
@@ -302,7 +200,7 @@ export default function ProgressBars({ user, today, totals, day, entries }) {
   const weekend = !!day.wk;
   const goals = goalsFor(user, weekend);
   return (
-    <section className="border border-line bg-surf rounded-lg p-4 space-y-4" aria-label="התקדמות יומית">
+    <section className="border border-line bg-surf rounded-lg p-3.5 space-y-3" aria-label="התקדמות יומית">
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold tracking-wide text-mute">יעדים יומיים</span>
         <label className="flex items-center gap-2 text-xs font-bold">
@@ -316,8 +214,8 @@ export default function ProgressBars({ user, today, totals, day, entries }) {
         <NutrientBar key={g.key} g={g} value={totals[g.key]} entries={entries} />
       ))}
       <div className="border-t border-line" />
-      <StepsBar steps={day.steps || 0} onSet={(n) => patchDay(user, today, { steps: n })} />
-      {PROFILES[user].floors && <FloorsBar floors={day.floors || 0} onSet={(n) => patchDay(user, today, { floors: n })} />}
+      <SliderStat label="צעדים" value={day.steps || 0} onSet={(n) => patchDay(user, today, { steps: n })} goal={STEP_GOAL} bonus={STEP_BONUS} max={STEP_SLIDER_MAX} step={100} />
+      {PROFILES[user].floors && <SliderStat label="קומות" value={day.floors || 0} onSet={(n) => patchDay(user, today, { floors: n })} goal={FLOOR_GOAL} bonus={FLOOR_BONUS} max={FLOOR_SLIDER_MAX} step={1} />}
       <WaterBar cups={day.water || 0} onSet={(n) => patchDay(user, today, { water: n })} />
     </section>
   );
