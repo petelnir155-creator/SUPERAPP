@@ -1,7 +1,8 @@
 export const APP_NAME = 'סופר א פטל';
 export const STEP_GOAL = 6000; // יעד צעדים ראשי
 export const STEP_BONUS = 8000; // יעד בונוס
-export const STEP_SLIDER_MAX = 15000; // טווח הסליידר
+export const STEP_SLIDER_MAX = 10000; // טווח הסליידר (ערכים גבוהים יותר אפשר להקליד בהיסטוריה)
+export const FLOOR_SLIDER_MAX = 20; // טווח סליידר הקומות
 export const FLOOR_GOAL = 10; // טיפוס קומות: יעד בסיס (ניר בלבד)
 export const FLOOR_BONUS = 15; // יעד בונוס
 export const AVG_START = '2026-11-15'; // ממוצע יומי מצטבר: מתאריך זה ועד אתמול
@@ -27,14 +28,15 @@ export const METRICS = [
 ];
 
 export const PROFILES = {
-  nir: { name: 'ניר', floors: true, goals: { kcal: 1800, p: 150, c: 165, f: 60, fb: 25 }, weekendKcal: 2000 },
-  od: { name: 'אוד', fem: true, instructor: true, goals: { kcal: 1400, p: 120, c: 111, f: 53, fb: 20 }, weekendKcal: 1600 },
+  nir: { name: 'ניר', floors: true, goals: { kcal: 1800, p: 150, c: 165, f: 60, fb: 25 }, weekendKcal: 2000, weekendGoals: { kcal: 2000, p: 150, c: 183, f: 67, fb: 25 } },
+  od: { name: 'אוד', fem: true, instructor: true, goals: { kcal: 1400, p: 120, c: 111, f: 53, fb: 20 }, weekendKcal: 1600, weekendGoals: { kcal: 1600, p: 120, c: 127, f: 61, fb: 20 } },
 };
 
+/* סופ״ש: חלבון וסיבים נשארים, והקלוריות הנוספות מתחלקות לפחמימות ושומן (באותו יחס) */
 export const goalsFor = (user, weekend) =>
   METRICS.map((m) => ({
     ...m,
-    goal: m.key === 'kcal' && weekend ? PROFILES[user].weekendKcal : PROFILES[user].goals[m.key],
+    goal: weekend ? PROFILES[user].weekendGoals[m.key] : PROFILES[user].goals[m.key],
   }));
 
 export const CATS = [
