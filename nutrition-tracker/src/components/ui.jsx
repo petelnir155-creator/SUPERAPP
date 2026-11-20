@@ -134,13 +134,23 @@ export function EditSheet({ entry, onSave, onClose }) {
   const [time, setTime] = useState(entry.time || nowTime());
   const [date, setDate] = useState(entry.date || todayKey());
   const q = num(qty);
+  /* ערכים תזונתיים של הרשומה (לא של המאכל במאגר). שינוי כמות בלי עריכה ידנית מעדכן אותם יחסית */
+  const KEYS = [['kcal', 'קלוריות'], ['p', 'חלבון (גר׳)'], ['c', 'פחמימות (גר׳)'], ['f', 'שומן (גר׳)'], ['fb', 'סיבים (גר׳)']];
+  const [macros, setMacros] = useState(() => Object.fromEntries(KEYS.map(([k]) => [k, String(r2(entry[k] || 0))])));
+  const [touched, setTouched] = useState(false);
+  const ratio = entry.qty > 0 && q > 0 ? q / entry.qty : 1;
+  const shown = touched ? macros : Object.fromEntries(KEYS.map(([k]) => [k, String(r2((entry[k] || 0) * ratio))]));
+  const setMacro = (k) => (e) => {
+    setMacros({ ...shown, [k]: e.target.value });
+    setTouched(true);
+  };
   return (
     <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md mx-auto bg-surf border border-line rounded-t-xl p-4 space-y-3"
-        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        className="w-full max-w-md mx-auto bg-surf border border-line rounded-t-xl p-4 space-y-3 overflow-y-auto"
+        style={{ maxHeight: '92dvh', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-bold text-lg">עריכת {entry.name}</h2>
@@ -156,12 +166,23 @@ export function EditSheet({ entry, onSave, onClose }) {
           <input className={inputCls} type="date" max={todayKey()} value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
         <MealChips value={meal} onChange={setMeal} />
+        <div className="rounded-md border border-line p-3 space-y-2">
+          <div className="text-sm font-bold">ערכים תזונתיים של הרשומה</div>
+          <div className="grid grid-cols-3 gap-2">
+            {KEYS.map(([k, label]) => (
+              <Field key={k} label={label}>
+                <input className={inputCls} type="number" inputMode="decimal" min="0" aria-label={label} value={shown[k]} onChange={setMacro(k)} />
+              </Field>
+            ))}
+          </div>
+          <div className="text-[11px] text-mute">השינוי חל על הרשומה הזו בלבד, המאכל במאגר לא משתנה.</div>
+        </div>
         <div className="flex gap-3 pt-1">
           <button onClick={onClose} className="flex-1 rounded-md py-3 font-bold border border-line">
             ביטול
           </button>
           <button
-            onClick={() => q > 0 && onSave({ qty: q, meal, time, date: date || entry.date })}
+            onClick={() => q > 0 && onSave({ qty: q, meal, time, date: date || entry.date, ...(touched ? { macros: Object.fromEntries(KEYS.map(([k]) => [k, num(macros[k])])) } : {}) })}
             disabled={q <= 0}
             className={'flex-1 rounded-md py-3 font-bold disabled:opacity-40 ' + btnPrimary}
           >

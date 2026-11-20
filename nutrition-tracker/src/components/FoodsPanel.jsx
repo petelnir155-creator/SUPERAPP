@@ -78,10 +78,13 @@ export default function FoodsPanel({ user }) {
   const shown = nq ? groups.filter((x) => x.items.length) : groups;
   const byName = (a, b) => a.name.localeCompare(b.name, 'he');
   /* מיון לפי ערכים ל-100 גרם. ברירת המחדל: לפי קטגוריות */
+  /* מיון לפי יחידה/מנה אחת אם הוגדרה (uname), ואחרת לפי 100 גרם */
+  const mult = (f) => (f.uname && f.serving > 0 ? f.serving / 100 : 1);
+  const basis = (f) => (f.uname && f.serving > 0 ? ' (ליחידה)' : " (ל-100 גר׳)");
   const SORTS = {
-    p: { label: 'הכי הרבה חלבון', val: (f) => f.p, dir: -1, tag: (f) => r1(f.p) + ' גר׳ חלבון' },
-    fb: { label: 'הכי הרבה סיבים', val: (f) => f.fb || 0, dir: -1, tag: (f) => r1(f.fb || 0) + ' גר׳ סיבים' },
-    kcal: { label: 'הכי פחות קלוריות', val: (f) => f.kcal, dir: 1, tag: (f) => Math.round(f.kcal) + ' קק״ל' },
+    p: { label: 'הכי הרבה חלבון', val: (f) => f.p * mult(f), dir: -1, tag: (f) => r1(f.p * mult(f)) + ' גר׳ חלבון' + basis(f) },
+    fb: { label: 'הכי הרבה סיבים', val: (f) => (f.fb || 0) * mult(f), dir: -1, tag: (f) => r1((f.fb || 0) * mult(f)) + ' גר׳ סיבים' + basis(f) },
+    kcal: { label: 'הכי פחות קלוריות', val: (f) => f.kcal * mult(f), dir: 1, tag: (f) => Math.round(f.kcal * mult(f)) + ' קק״ל' + basis(f) },
   };
   const sorted = SORTS[sort] ? matches.slice().sort((a, b) => SORTS[sort].dir * (SORTS[sort].val(a) - SORTS[sort].val(b)) || byName(a, b)) : [];
 
