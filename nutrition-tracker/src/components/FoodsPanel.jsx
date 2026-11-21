@@ -3,6 +3,7 @@ import { CATS } from '../lib/config.js';
 import { useG } from '../lib/gender.js';
 import { FOOD_USER, Store, useStoreVersion } from '../lib/store.js';
 import { catOf, norm, num, r1, r2, uid } from '../lib/utils.js';
+import RecipeForm from './RecipeForm.jsx';
 import { Field, btnPrimary, chipOn, inputCls } from './ui.jsx';
 
 const EMPTY = { id: null, name: '', cat: 'protein', mode: '100', kcal: '', p: '', c: '', f: '', fb: '', uname: '', size: '' };
@@ -19,6 +20,7 @@ export default function FoodsPanel({ user }) {
   const [sort, setSort] = useState('cat');
   const [openFood, setOpenFood] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [recipe, setRecipe] = useState(null); // null | 'new' | מסמך מתכון לעריכה
   const [form, setForm] = useState(EMPTY);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -45,6 +47,15 @@ export default function FoodsPanel({ user }) {
   };
 
   const startEdit = (f) => {
+    if (f.recipe) {
+      setAdding(false);
+      setRecipe(f);
+      setTimeout(() => {
+        const el = document.getElementById('food-form');
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+      }, 30);
+      return;
+    }
     setForm({
       id: f.id, name: f.name, cat: catOf(f), mode: '100', kcal: String(r2(f.kcal)), p: String(r2(f.p)), c: String(r2(f.c)), f: String(r2(f.f)), fb: String(r2(f.fb || 0)),
       uname: f.uname || '', size: f.uname || f.serving !== 100 ? String(f.serving) : '',
@@ -118,6 +129,11 @@ export default function FoodsPanel({ user }) {
         </div>
         {isOpen && (
           <div className="px-4 pb-3 text-xs text-mute tnum space-y-0.5">
+            {f.recipe ? (
+              <div>
+                מתכון{f.recipe.cooked ? ' · משקל מוכן ' + f.recipe.cooked + ' גר׳' : ''}: {f.recipe.ing.map((i) => i.n + ' ' + r1(i.g) + ' גר׳').join(' · ')}
+              </div>
+            ) : null}
             {f.uname ? (
               <div>
                 {f.uname} ({f.serving} גר׳): {r1((f.kcal * f.serving) / 100)} קק״ל · {r1((f.p * f.serving) / 100)} חלבון · {r1((f.c * f.serving) / 100)} פחמ׳ ·{' '}
@@ -165,8 +181,31 @@ export default function FoodsPanel({ user }) {
       </div>
       <button
         onClick={() => {
+          setRecipe(recipe === 'new' ? null : 'new');
+          setAdding(false);
+          setForm(EMPTY);
+        }}
+        aria-expanded={recipe === 'new'}
+        className="w-full rounded-md py-2.5 font-bold border border-line bg-surf flex items-center justify-center gap-2"
+      >
+        <span className="text-xl leading-none">{recipe === 'new' ? '−' : '+'}</span> {recipe === 'new' ? 'סגור את הטופס' : 'מתכון חדש (מנה מורכבת)'}
+      </button>
+      {recipe && (
+        <RecipeForm
+          key={recipe === 'new' ? 'new' : recipe.id}
+          init={recipe === 'new' ? null : recipe}
+          foods={foods}
+          onDone={(cat) => {
+            if (cat) setOpen((o) => ({ ...o, [cat]: true }));
+            setRecipe(null);
+          }}
+        />
+      )}
+      <button
+        onClick={() => {
           if (adding) setForm(EMPTY);
           setAdding(!adding);
+          setRecipe(null);
         }}
         aria-expanded={adding}
         className="w-full rounded-md py-2.5 font-bold border border-line bg-surf flex items-center justify-center gap-2"
